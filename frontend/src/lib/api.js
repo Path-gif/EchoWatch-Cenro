@@ -1,6 +1,10 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3000')
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim()
+const isLocalApiUrl = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(configuredApiUrl || '')
+const baseURL = import.meta.env.PROD
+  ? (configuredApiUrl && !isLocalApiUrl ? configuredApiUrl : '/api')
+  : (configuredApiUrl || 'http://localhost:3000')
 
 const instance = axios.create({ baseURL })
 
