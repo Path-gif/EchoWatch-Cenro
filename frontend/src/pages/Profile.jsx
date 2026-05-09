@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
+import { normalizeUser, toDisplayText } from '../lib/text'
 
 const MUNICIPALITIES = [
   'Olongapo',
@@ -17,7 +18,7 @@ const fieldClass =
 
 function readUser() {
   try {
-    return JSON.parse(localStorage.getItem('user') || 'null')
+    return normalizeUser(JSON.parse(localStorage.getItem('user') || 'null'))
   } catch {
     return null
   }
@@ -79,12 +80,12 @@ export default function Profile() {
 
     try {
       const response = await api.patch('/auth/me', { name, phone, email, municipality })
-      localStorage.setItem('user', JSON.stringify(response.data.user))
+      localStorage.setItem('user', JSON.stringify(normalizeUser(response.data.user)))
       localStorage.setItem('token', response.data.token)
       window.dispatchEvent(new Event('user-updated'))
       setMessage({ type: 'success', text: 'Profile updated successfully.' })
     } catch (error) {
-      setMessage({ type: 'error', text: error?.response?.data?.error || 'Failed to update profile.' })
+      setMessage({ type: 'error', text: toDisplayText(error?.response?.data?.error, 'Failed to update profile.') })
     } finally {
       setSaving(false)
     }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
+import { normalizeUser, toDisplayText } from '../lib/text'
 import PasswordField from '../components/PasswordField'
 
 const inputClass =
@@ -39,7 +40,7 @@ export default function Register() {
     try {
       const res = await api.post('/auth/register', { fullName, phone, email, password, municipality })
       localStorage.setItem('token', res.data.token)
-      localStorage.setItem('user', JSON.stringify(res.data.user))
+      localStorage.setItem('user', JSON.stringify(normalizeUser(res.data.user)))
       setMessage({ type: 'success', text: 'Account created. Redirecting...' })
       window.dispatchEvent(new Event('user-updated'))
       navigate('/home', { replace: true })
@@ -47,7 +48,7 @@ export default function Register() {
       const errorText =
         err?.response?.data?.error ||
         (err?.code === 'ERR_NETWORK' ? `Cannot reach backend server on ${api.defaults.baseURL}` : 'Registration failed')
-      setMessage({ type: 'error', text: errorText })
+      setMessage({ type: 'error', text: toDisplayText(errorText, 'Registration failed') })
     } finally {
       setLoading(false)
     }

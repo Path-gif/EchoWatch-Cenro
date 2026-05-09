@@ -1,9 +1,10 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import { normalizeUser, toDisplayText } from '../lib/text'
 
 function readUser() {
   try {
-    return JSON.parse(localStorage.getItem('user') || 'null')
+    return normalizeUser(JSON.parse(localStorage.getItem('user') || 'null'))
   } catch {
     return null
   }
@@ -101,7 +102,7 @@ export default function Home() {
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1a5e20]">Official Environmental Portal</p>
           <h1 className="mt-2 text-3xl font-black leading-tight text-[#00441b] sm:text-4xl">Official Environmental Portal</h1>
           <p className="mt-3 max-w-2xl text-base leading-7 text-[#495057]">
-            {user?.name ? `Active user: ${user.name}. ` : ''}
+            {user?.name ? `Active user: ${toDisplayText(user.name)}. ` : ''}
             This platform serves as a secure digital portal for environmental reporting and data management.
           </p>
         </section>

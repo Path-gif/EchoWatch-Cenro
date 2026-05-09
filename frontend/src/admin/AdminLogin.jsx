@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
+import { toDisplayText } from '../lib/text'
 import PasswordField from '../components/PasswordField'
 
 export default function AdminLogin() {
@@ -33,7 +34,7 @@ export default function AdminLogin() {
       setMessage({ type: 'success', text: 'Admin access granted. Redirecting...' })
       setTimeout(() => navigate('/admin/dashboard'), 700)
     } catch (err) {
-      const code = err?.response?.data?.error
+      const code = toDisplayText(err?.response?.data?.error)
       let text = 'Login failed'
       if (code === 'invalid_credentials') text = 'Incorrect email or password.'
       else if (code === 'account_inactive') text = 'Account inactive. Contact support.'

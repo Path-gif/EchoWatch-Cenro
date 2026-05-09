@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
+import { normalizeUser, toDisplayText } from '../lib/text'
 
 function readUser() {
   try {
-    return JSON.parse(localStorage.getItem('user') || 'null')
+    return normalizeUser(JSON.parse(localStorage.getItem('user') || 'null'))
   } catch {
     return null
   }
@@ -128,7 +129,7 @@ export default function Header() {
               <p className="truncate text-[11px] font-semibold uppercase tracking-[0.22em] text-[#e5c76b] sm:text-xs">Republic of the Philippines</p>
               <h1 className="truncate text-lg font-bold sm:text-[1.6rem] sm:leading-[1.15] lg:text-[1.75rem]">DENR CENRO</h1>
               <p className="truncate pt-1 text-base font-medium text-emerald-100/90">
-                {user?.name ? `Hi, ${user.name}` : 'Citizen portal for verified environmental monitoring reports'}
+                {user?.name ? `Hi, ${toDisplayText(user.name)}` : 'Citizen portal for verified environmental monitoring reports'}
               </p>
             </Link>
           </div>
@@ -182,11 +183,11 @@ export default function Header() {
                             className="block rounded-xl px-4 py-3 transition hover:bg-white/10"
                           >
                             <div className="flex items-start justify-between gap-3">
-                              <p className="text-sm font-bold">{item.title}</p>
+                              <p className="text-sm font-bold">{toDisplayText(item.title, 'Report update')}</p>
                               {!seenNotifications.includes(item.id) && <span className="mt-1 h-2 w-2 rounded-full bg-[#e5c76b]" />}
                             </div>
-                            <p className="mt-1 text-sm text-emerald-50/90">{item.message}</p>
-                            {item.notes && <p className="mt-1 line-clamp-2 text-xs text-emerald-50/75">{item.notes}</p>}
+                            <p className="mt-1 text-sm text-emerald-50/90">{toDisplayText(item.message, 'A report was updated.')}</p>
+                            {item.notes && <p className="mt-1 line-clamp-2 text-xs text-emerald-50/75">{toDisplayText(item.notes)}</p>}
                             <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#e5c76b]">
                               {formatNotificationDate(item.created_at)}
                             </p>

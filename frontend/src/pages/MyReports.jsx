@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
+import { toDisplayText } from '../lib/text'
 
 function statusClasses(status) {
   if (status === 'resolved') return 'border-[#b9d7b3] bg-[#eef6ea] text-[#1a5e20]'
@@ -70,7 +71,7 @@ export default function MyReports() {
           localStorage.removeItem('user')
           setMessage('Your session expired. Please sign in again.')
         } else {
-          setMessage(error?.response?.data?.error || 'Failed to fetch reports.')
+          setMessage(toDisplayText(error?.response?.data?.error, 'Failed to fetch reports.'))
         }
       } finally {
         setLoading(false)
@@ -121,7 +122,7 @@ export default function MyReports() {
 
         {message && (
           <div className="rounded-xl rounded-tr-none border border-[#cfd8d3] bg-white px-4 py-3 text-sm font-semibold text-[#212529] shadow-[0_6px_16px_rgba(0,68,27,0.08)]">
-            {message}
+            {toDisplayText(message)}
             {!localStorage.getItem('token') && (
               <button type="button" onClick={() => navigate('/login', { replace: true })} className="ml-3 min-h-12 font-black text-[#1a5e20] underline underline-offset-4">
                 Sign in
@@ -191,21 +192,21 @@ export default function MyReports() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="text-base font-black leading-6 text-[#00441b]">{report.violation_type}</h3>
-                    <p className="mt-1 font-mono text-xs font-black text-[#1a5e20]">{report.reference_number}</p>
+                    <h3 className="text-base font-black leading-6 text-[#00441b]">{toDisplayText(report.violation_type, 'Untitled report')}</h3>
+                    <p className="mt-1 font-mono text-xs font-black text-[#1a5e20]">{toDisplayText(report.reference_number)}</p>
                   </div>
                   <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase ${statusClasses(report.status)}`}>
                     {String(report.status || '').replaceAll('_', ' ')}
                   </span>
                 </div>
 
-                <p className="mt-3 text-sm leading-6 text-[#495057]">{report.description}</p>
+                <p className="mt-3 text-sm leading-6 text-[#495057]">{toDisplayText(report.description, 'No description')}</p>
 
                 <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
                   <div className="rounded-xl rounded-tr-none border border-[#d7e0da] bg-[#f8f9fa] px-3 py-2">
                     <dt className="text-[11px] font-black uppercase tracking-[0.12em] text-[#6c757d]">Location</dt>
                     <dd className="mt-1 font-semibold text-[#212529]">
-                      {report.manual_location || [report.latitude, report.longitude].filter(Boolean).join(', ') || 'Not provided'}
+                      {toDisplayText(report.manual_location || [report.latitude, report.longitude].filter(Boolean).join(', '), 'Not provided')}
                     </dd>
                   </div>
                   <div className="rounded-xl rounded-tr-none border border-[#d7e0da] bg-[#f8f9fa] px-3 py-2">

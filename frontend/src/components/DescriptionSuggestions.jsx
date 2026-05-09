@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import api from '../lib/api'
+import { toDisplayText } from '../lib/text'
 
 const DEFAULT_SUGGESTIONS_BY_TYPE = {
   'Illegal Cutting (Section 77)': [
@@ -164,7 +165,7 @@ export default function DescriptionSuggestions({ description, setDescription, vi
       // If we have fallback suggestions, prefer silently falling back
       if (!silent) {
         if (!fallbackSuggestions || fallbackSuggestions.length === 0) {
-          setError(err?.response?.data?.error || 'Unable to load AI suggestions right now')
+          setError(toDisplayText(err?.response?.data?.error, 'Unable to load AI suggestions right now'))
         } else {
           setError(null)
         }

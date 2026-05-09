@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
+import { normalizeUser, toDisplayText } from '../lib/text'
 import DescriptionSuggestions from '../components/DescriptionSuggestions'
 
 const inputClass =
@@ -11,7 +12,7 @@ const invalidInputClass =
 
 function readUser() {
   try {
-    return JSON.parse(localStorage.getItem('user') || 'null')
+    return normalizeUser(JSON.parse(localStorage.getItem('user') || 'null'))
   } catch {
     return null
   }
@@ -149,7 +150,7 @@ export default function SubmitReport() {
 
       const response = await api.post('/reports', payload)
 
-      setMessage({ type: 'success', text: `Report submitted. Reference: ${response.data.reference_number}` })
+      setMessage({ type: 'success', text: `Report submitted. Reference: ${toDisplayText(response.data.reference_number, 'Pending reference')}` })
       setFormData({
         violationType: 'Illegal Cutting (Section 77)',
         reportDate: getTodayDateValue(),
@@ -162,7 +163,7 @@ export default function SubmitReport() {
       setSubmitAttempted(false)
       setMediaFiles([])
     } catch (error) {
-      setMessage({ type: 'error', text: error?.response?.data?.error || 'Failed to submit report. Please try again.' })
+      setMessage({ type: 'error', text: toDisplayText(error?.response?.data?.error, 'Failed to submit report. Please try again.') })
     } finally {
       setLoading(false)
     }
@@ -181,7 +182,7 @@ export default function SubmitReport() {
         setMessage({ type: 'success', text: 'Location captured successfully.' })
       },
       (error) => {
-        setMessage({ type: 'error', text: `Failed to capture location: ${error.message}` })
+        setMessage({ type: 'error', text: `Failed to capture location: ${toDisplayText(error.message, 'Location unavailable')}` })
       }
     )
   }

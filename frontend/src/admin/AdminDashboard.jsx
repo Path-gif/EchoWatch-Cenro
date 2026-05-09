@@ -15,6 +15,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import api from '../lib/api'
+import { toDisplayText } from '../lib/text'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -70,7 +71,7 @@ function EvidencePreview({ report, compact = false }) {
     >
       <img
         src={imageUrl}
-        alt={`Evidence for ${report.reference_number}`}
+      alt={`Evidence for ${toDisplayText(report.reference_number, 'report')}`}
         className="h-14 w-16 rounded-lg border border-[#dbe4df] object-cover shadow-sm transition group-hover:opacity-90"
       />
       <span className="text-sm font-semibold text-[#0f5f46] group-hover:underline">
@@ -142,8 +143,8 @@ function OverviewMap({ reports, selectedReport, markerRefs }) {
         >
           <Popup>
             <div className="min-w-[180px] text-sm text-slate-700">
-              <p className="font-bold text-slate-900">{report.municipality}</p>
-              <p className="mt-1">{report.violation_type}</p>
+              <p className="font-bold text-slate-900">{toDisplayText(report.municipality, 'Unknown municipality')}</p>
+              <p className="mt-1">{toDisplayText(report.violation_type, 'Untitled report')}</p>
               <p className="mt-1 text-xs text-slate-500">{formatTimestamp(report.created_at)}</p>
             </div>
           </Popup>
@@ -194,7 +195,7 @@ export default function AdminDashboard() {
       }
       setMessage('Report deleted successfully')
     } catch (error) {
-      setMessage(error?.response?.data?.error || 'Failed to delete report')
+      setMessage(toDisplayText(error?.response?.data?.error, 'Failed to delete report'))
     }
   }
 
@@ -223,7 +224,7 @@ export default function AdminDashboard() {
       }))
       setMessage('Report marked done. The citizen will see a notification.')
     } catch (error) {
-      setMessage(error?.response?.data?.error || 'Failed to mark report done')
+      setMessage(toDisplayText(error?.response?.data?.error, 'Failed to mark report done'))
     }
   }
 
@@ -272,7 +273,7 @@ export default function AdminDashboard() {
           return
         }
 
-        setMessage(error?.response?.data?.error || 'Unable to load administrative report overview.')
+        setMessage(toDisplayText(error?.response?.data?.error, 'Unable to load administrative report overview.'))
       } finally {
         if (isMounted) {
           setLoading(false)
@@ -376,7 +377,7 @@ export default function AdminDashboard() {
 
       {message ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
-          {message}
+          {toDisplayText(message)}
         </div>
       ) : null}
 
@@ -444,7 +445,7 @@ export default function AdminDashboard() {
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Focused Report</p>
               <h3 className="mt-2 break-words text-xl font-black text-[#123629] sm:text-2xl">
-                {selectedReport ? selectedReport.reference_number : 'No report selected'}
+                {selectedReport ? toDisplayText(selectedReport.reference_number, 'No reference number') : 'No report selected'}
               </h3>
             </div>
             {selectedReport && (
@@ -460,21 +461,21 @@ export default function AdminDashboard() {
               <div className="rounded-[1.05rem] border border-[#cfe0d7] bg-gradient-to-br from-[#f7fbf8] to-[#edf6f1] px-4 py-4 sm:rounded-[1.2rem]">
                 <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Submitted By</p>
                 <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="break-words text-base font-black text-[#123629] sm:text-lg">{selectedReport.submitter_name || 'Unknown submitter'}</p>
-                  <p className="w-fit rounded-full border border-[#d4e2da] bg-white px-3 py-1 text-sm font-semibold text-slate-700">
-                    {selectedReport.phone || 'No phone number'}
+                <p className="break-words text-base font-black text-[#123629] sm:text-lg">{toDisplayText(selectedReport.submitter_name, 'Unknown submitter')}</p>
+                <p className="w-fit rounded-full border border-[#d4e2da] bg-white px-3 py-1 text-sm font-semibold text-slate-700">
+                    {toDisplayText(selectedReport.phone, 'No phone number')}
                   </p>
                 </div>
               </div>
 
               <div className="rounded-[1.05rem] border border-[#dbe4df] bg-[#f8fbf9] px-4 py-4 sm:rounded-[1.2rem]">
                 <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Municipality</p>
-                <p className="mt-2 text-lg font-bold text-slate-900">{selectedReport.municipality}</p>
+                <p className="mt-2 text-lg font-bold text-slate-900">{toDisplayText(selectedReport.municipality, 'Unknown municipality')}</p>
               </div>
 
               <div className="rounded-[1.05rem] border border-[#dbe4df] bg-[#f8fbf9] px-4 py-4 sm:rounded-[1.2rem]">
                 <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Violation Type</p>
-                <p className="mt-2 text-sm leading-6 text-slate-700">{selectedReport.violation_type}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{toDisplayText(selectedReport.violation_type, 'Untitled report')}</p>
               </div>
 
               <div className="rounded-[1.05rem] border border-[#dbe4df] bg-[#f8fbf9] px-4 py-4 sm:rounded-[1.2rem]">
@@ -502,7 +503,7 @@ export default function AdminDashboard() {
 
               <div className="rounded-[1.05rem] border border-[#dbe4df] bg-[#f8fbf9] px-4 py-4 sm:rounded-[1.2rem]">
                 <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Location Source</p>
-                <p className="mt-2 text-sm leading-6 text-slate-700">{selectedReport.manual_location || 'Coordinate-only report'}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{toDisplayText(selectedReport.manual_location, 'Coordinate-only report')}</p>
               </div>
             </div>
           ) : (
@@ -542,8 +543,8 @@ export default function AdminDashboard() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="break-words text-base font-black text-[#123629]">{report.reference_number}</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-700">{report.municipality}</p>
+                      <p className="break-words text-base font-black text-[#123629]">{toDisplayText(report.reference_number, 'No reference number')}</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-700">{toDisplayText(report.municipality, 'Unknown municipality')}</p>
                     </div>
                     <div className="relative shrink-0">
                       <button
@@ -617,12 +618,12 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0f5f46]">Description</p>
-                      <p className="mt-1 leading-6">{report.description ?? 'Not available'}</p>
+                      <p className="mt-1 leading-6">{toDisplayText(report.description, 'Not available')}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0f5f46]">Submitter</p>
-                      <p className="mt-1 font-semibold text-slate-900">{report.submitter_name || 'Unknown submitter'}</p>
-                      <p className="text-slate-500">{report.phone || 'No phone number'}</p>
+                      <p className="mt-1 font-semibold text-slate-900">{toDisplayText(report.submitter_name, 'Unknown submitter')}</p>
+                      <p className="text-slate-500">{toDisplayText(report.phone, 'No phone number')}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0f5f46]">Timestamp</p>
@@ -674,18 +675,18 @@ export default function AdminDashboard() {
                       }}
                       className={`${isSelected ? 'bg-[#f3f7f5]' : 'hover:bg-[#fafcfb]'} ${hasCoordinates ? 'cursor-pointer' : ''}`}
                     >
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-900">{report.reference_number}</td>
-                      <td className="px-6 py-4 text-sm text-slate-700">{report.municipality}</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-900">{toDisplayText(report.reference_number, 'No reference number')}</td>
+                      <td className="px-6 py-4 text-sm text-slate-700">{toDisplayText(report.municipality, 'Unknown municipality')}</td>
                       <td className="px-6 py-4 text-sm text-slate-700">{report.longitude ?? 'Not available'}</td>
                       <td className="px-6 py-4 text-sm text-slate-700">{report.latitude ?? 'Not available'}</td>
                       <td className="px-6 py-4 text-sm text-slate-700">
                         <EvidencePreview report={report} />
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-700">{report.description ?? 'Not available'}</td>
+                      <td className="px-6 py-4 text-sm text-slate-700">{toDisplayText(report.description, 'Not available')}</td>
                       <td className="px-6 py-4 text-sm text-slate-700">
                         <div className="flex min-w-48 flex-col gap-1">
-                          <span className="font-semibold text-slate-900">{report.submitter_name || 'Unknown submitter'}</span>
-                          <span className="text-slate-500">{report.phone || 'No phone number'}</span>
+                          <span className="font-semibold text-slate-900">{toDisplayText(report.submitter_name, 'Unknown submitter')}</span>
+                          <span className="text-slate-500">{toDisplayText(report.phone, 'No phone number')}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-700">{formatTimestamp(report.created_at)}</td>

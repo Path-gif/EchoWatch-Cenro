@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
+import { normalizeUser, toDisplayText } from '../lib/text'
 import PasswordField from '../components/PasswordField'
 
 const inputClass =
@@ -43,7 +44,7 @@ export default function Login() {
     try {
       const res = await api.post('/auth/login', { email: submittedEmail, password: submittedPassword })
       localStorage.setItem('token', res.data.token)
-      localStorage.setItem('user', JSON.stringify(res.data.user))
+      localStorage.setItem('user', JSON.stringify(normalizeUser(res.data.user)))
       setMessage({ type: 'success', text: 'Signed in successfully.' })
       window.dispatchEvent(new Event('user-updated'))
       if (res.status === 200) {
@@ -53,7 +54,7 @@ export default function Login() {
       const errorText =
         err?.response?.data?.error ||
         (err?.code === 'ERR_NETWORK' ? `Cannot reach backend server on ${api.defaults.baseURL}` : 'Login failed')
-      setMessage({ type: 'error', text: errorText })
+      setMessage({ type: 'error', text: toDisplayText(errorText, 'Login failed') })
     } finally {
       setLoading(false)
     }
