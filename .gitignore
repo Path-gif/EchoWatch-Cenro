@@ -1,0 +1,34 @@
+# dependencies
+node_modules/
+
+# local environment files
+.env
+.env.*
+!.env.example
+
+# build output
+dist/
+build/
+.vite/
+.expo/
+
+# logs and temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+debug*.out
+debug*.err
+
+# uploaded/local runtime files
+backend/backend_uploads/
+uploads/
+
+# editor and local cache files
+.vscode/
+caches/
+
+# OS files
+.DS_Store
+Thumbs.db
+
