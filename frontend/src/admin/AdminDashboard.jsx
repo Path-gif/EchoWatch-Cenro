@@ -45,7 +45,7 @@ function getEvidenceImages(report) {
 
 function normalizeMediaUrl(url) {
   if (!url) return ''
-  if (/^https?:\/\//i.test(url)) return url
+  if (/^(https?:|data:|blob:)/i.test(url)) return url
 
   const baseURL = api.defaults.baseURL || ''
   return `${baseURL}${url.startsWith('/') ? '' : '/'}${url}`

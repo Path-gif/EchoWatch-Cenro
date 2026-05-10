@@ -1,32 +1,15 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const multer = require('multer')
-const fs = require('fs')
-const path = require('path')
 const db = require('../db');
+const { sendServerError } = require('../utils/errors');
 
 const router = express.Router();
 
-// prepare uploads directory
-const UPLOAD_DIR = path.join(__dirname, '..', '..', 'backend_uploads')
-try {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true })
-} catch (e) {
-  console.error('Failed to create upload dir', e.message)
-}
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, UPLOAD_DIR)
-  },
-  filename: function (req, file, cb) {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9)
-    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')
-    cb(null, `${unique}-${safe}`)
-  },
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024, files: 5 },
 })
-
-const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } })
 
 const MUNICIPALITIES = [
   { name: 'Olongapo', code: 'OLO', latitude: 14.8386, longitude: 120.2842 },
@@ -158,7 +141,30 @@ async function generateReferenceNumber(client, municipalityCode) {
   return `${prefix}${nextSequence}`;
 }
 
-router.post('/', requireUser, upload.array('media'), async (req, res) => {
+function uploadEvidence(req, res, next) {
+  upload.array('media')(req, res, (error) => {
+    if (!error) {
+      return next();
+    }
+
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'Evidence file is too large. Upload images smaller than 4 MB.' });
+    }
+
+    if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({ error: 'Too many evidence files. Upload up to 5 files only.' });
+    }
+
+    console.error('Evidence upload error:', error);
+    return res.status(400).json({ error: 'Unable to upload evidence. Please try a smaller image.' });
+  });
+}
+
+function fileToDataUrl(file) {
+  return `data:${file.mimetype || 'application/octet-stream'};base64,${file.buffer.toString('base64')}`;
+}
+
+router.post('/', requireUser, uploadEvidence, async (req, res) => {
   // when multipart/form-data is used, req.body fields are strings
   const {
     violation_type: rawViolationType,
@@ -243,9 +249,14 @@ router.post('/', requireUser, upload.array('media'), async (req, res) => {
         VALUES ($1, $2, $3, $4, $5, $6, true)
       `;
       for (const f of req.files) {
-        const relPath = path.relative(path.join(__dirname, '..', '..'), f.path)
-        const publicUrl = `/uploads/${encodeURIComponent(path.basename(f.path))}`;
-        await client.query(insertMediaText, [insertResult.rows[0].id, relPath, publicUrl, f.originalname, f.size, f.mimetype])
+        await client.query(insertMediaText, [
+          insertResult.rows[0].id,
+          null,
+          fileToDataUrl(f),
+          f.originalname,
+          f.size,
+          f.mimetype,
+        ])
       }
     }
 
@@ -254,7 +265,7 @@ router.post('/', requireUser, upload.array('media'), async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Create report error:', error);
-    return res.status(500).json({ error: 'Failed to create report' });
+    return sendServerError(res, 'Failed to create report', error);
   } finally {
     client.release();
   }
