@@ -8,6 +8,9 @@ const adminRouter = require('../src/routes/admin');
 const reportsRouter = require('../src/routes/reports');
 const aiRouter = require('../src/routes/ai');
 const legacyPhpRouter = require('../src/routes/legacyPhp');
+const db = require('../src/db');
+const { ensureDatabaseSchema } = require('../src/utils/schema');
+const { getDatabaseErrorMessage } = require('../src/utils/errors');
 
 const app = express();
 
@@ -39,6 +42,19 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '..', 'backend_uploads')));
 
+app.use(async (req, res, next) => {
+  try {
+    await ensureDatabaseSchema(db);
+    return next();
+  } catch (error) {
+    console.error('Schema setup error:', error);
+    return res.status(500).json({
+      error: getDatabaseErrorMessage(error) || 'Database setup failed.',
+      code: error?.code || 'DATABASE_SETUP_FAILED',
+    });
+  }
+});
+
 app.use('/auth', authRouter);
 app.use('/admin', adminRouter);
 app.use('/reports', reportsRouter);
@@ -52,7 +68,8 @@ app.get('/', (req, res) => {
 
 app.get('/health', async (req, res) => {
   try {
-    await require('../src/db').query('SELECT 1');
+    await ensureDatabaseSchema(db);
+    await db.query('SELECT 1');
     return res.json({ ok: true, service: 'denr-citizen-backend', database: 'connected' });
   } catch (error) {
     console.error('Health check error:', error);
