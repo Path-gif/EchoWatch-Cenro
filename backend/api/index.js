@@ -1,5 +1,4 @@
 const express = require('express');
-const serverless = require('serverless-http');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const compression = require('compression');
@@ -55,5 +54,5 @@ if (require.main === module) {
   const port = process.env.PORT || 3000;
   app.listen(port, () => console.log(`Server listening on ${port}`));
 } else {
-  module.exports.handler = serverless(app);
+  module.exports = app;
 }
