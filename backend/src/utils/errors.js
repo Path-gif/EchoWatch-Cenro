@@ -1,6 +1,6 @@
 function getDatabaseErrorMessage(error) {
   if (error?.code === 'DATABASE_NOT_CONFIGURED') {
-    return 'Database is not configured. Add DATABASE_URL in Vercel Environment Variables.';
+    return 'Database is not configured. Add DATABASE_URL or connect Neon/Postgres so POSTGRES_URL is available in Vercel Environment Variables.';
   }
 
   if (error?.code === '42P01') {

@@ -3,7 +3,13 @@ const path = require('path');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
+const databaseUrl =
+  process.env.DATABASE_URL ||
+  process.env.POSTGRES_URL ||
+  process.env.POSTGRES_PRISMA_URL ||
+  process.env.POSTGRES_URL_NON_POOLING;
+
+const hasDatabaseUrl = Boolean(databaseUrl);
 const hasDiscreteConfig = Boolean(
   process.env.DB_USER &&
   process.env.DB_PASSWORD &&
@@ -12,13 +18,13 @@ const hasDiscreteConfig = Boolean(
   process.env.DB_NAME
 );
 const connectionString = hasDatabaseUrl
-  ? process.env.DATABASE_URL
+  ? databaseUrl
   : hasDiscreteConfig
     ? `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`
     : null;
 
 if (!connectionString) {
-  console.error('Database configuration missing. Set DATABASE_URL in the deployment environment.');
+  console.error('Database configuration missing. Set DATABASE_URL or POSTGRES_URL in the deployment environment.');
 }
 
 const pool = new Pool({
@@ -48,7 +54,7 @@ if (connectionString) {
 module.exports = {
   query: (text, params) => {
     if (!connectionString) {
-      const error = new Error('Database is not configured. Set DATABASE_URL in Vercel Environment Variables.');
+      const error = new Error('Database is not configured. Set DATABASE_URL or connect Vercel Postgres/Neon so POSTGRES_URL is available.');
       error.code = 'DATABASE_NOT_CONFIGURED';
       return Promise.reject(error);
     }
