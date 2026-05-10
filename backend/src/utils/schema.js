@@ -90,6 +90,7 @@ async function createSchema(db) {
       media_type VARCHAR(20),
       file_path TEXT,
       file_url TEXT,
+      file_data BYTEA,
       file_name VARCHAR(255),
       file_size INTEGER,
       mime_type VARCHAR(100),
@@ -97,6 +98,8 @@ async function createSchema(db) {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+
+  await db.query('ALTER TABLE report_media ADD COLUMN IF NOT EXISTS file_data BYTEA');
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS report_activities (

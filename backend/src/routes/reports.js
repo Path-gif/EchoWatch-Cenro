@@ -73,6 +73,7 @@ async function ensureReportMediaColumns(client) {
 
   await client.query('ALTER TABLE report_media ADD COLUMN IF NOT EXISTS file_path TEXT');
   await client.query('ALTER TABLE report_media ADD COLUMN IF NOT EXISTS file_url TEXT');
+  await client.query('ALTER TABLE report_media ADD COLUMN IF NOT EXISTS file_data BYTEA');
   await client.query('ALTER TABLE report_media ADD COLUMN IF NOT EXISTS mime_type TEXT');
   await client.query('ALTER TABLE report_media ADD COLUMN IF NOT EXISTS file_name VARCHAR(255)');
   await client.query('ALTER TABLE report_media ADD COLUMN IF NOT EXISTS file_size INTEGER');
@@ -160,8 +161,16 @@ function uploadEvidence(req, res, next) {
   });
 }
 
-function fileToDataUrl(file) {
-  return `data:${file.mimetype || 'application/octet-stream'};base64,${file.buffer.toString('base64')}`;
+function parseDataUrl(value) {
+  const match = /^data:([^;,]+)?;base64,(.+)$/i.exec(String(value || ''));
+  if (!match) {
+    return null;
+  }
+
+  return {
+    mimeType: match[1] || 'application/octet-stream',
+    buffer: Buffer.from(match[2], 'base64'),
+  };
 }
 
 router.post('/', requireUser, uploadEvidence, async (req, res) => {
@@ -245,14 +254,15 @@ router.post('/', requireUser, uploadEvidence, async (req, res) => {
       await ensureReportMediaColumns(client);
 
       const insertMediaText = `
-        INSERT INTO report_media (report_id, file_path, file_url, file_name, file_size, mime_type, uploaded_by_user)
-        VALUES ($1, $2, $3, $4, $5, $6, true)
+        INSERT INTO report_media (report_id, file_path, file_url, file_data, file_name, file_size, mime_type, uploaded_by_user)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, true)
       `;
       for (const f of req.files) {
         await client.query(insertMediaText, [
           insertResult.rows[0].id,
           null,
-          fileToDataUrl(f),
+          null,
+          f.buffer,
           f.originalname,
           f.size,
           f.mimetype,
@@ -268,6 +278,52 @@ router.post('/', requireUser, uploadEvidence, async (req, res) => {
     return sendServerError(res, 'Failed to create report', error);
   } finally {
     client.release();
+  }
+});
+
+router.get('/media/:id', async (req, res) => {
+  try {
+    const mediaId = Number(req.params.id);
+    if (!Number.isFinite(mediaId)) {
+      return res.status(400).send('Invalid media id');
+    }
+
+    const result = await db.query(
+      `SELECT file_data, file_url, file_name, mime_type
+       FROM report_media
+       WHERE id = $1
+       LIMIT 1`,
+      [mediaId]
+    );
+
+    const media = result.rows[0];
+    if (!media) {
+      return res.status(404).send('Media not found');
+    }
+
+    if (media.file_data) {
+      res.setHeader('Content-Type', media.mime_type || 'application/octet-stream');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Content-Disposition', `inline; filename="${String(media.file_name || 'evidence').replace(/"/g, '')}"`);
+      return res.send(media.file_data);
+    }
+
+    const parsedDataUrl = parseDataUrl(media.file_url);
+    if (parsedDataUrl) {
+      res.setHeader('Content-Type', media.mime_type || parsedDataUrl.mimeType);
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Content-Disposition', `inline; filename="${String(media.file_name || 'evidence').replace(/"/g, '')}"`);
+      return res.send(parsedDataUrl.buffer);
+    }
+
+    if (media.file_url) {
+      return res.redirect(media.file_url);
+    }
+
+    return res.status(404).send('Media file unavailable');
+  } catch (error) {
+    console.error('Fetch media error:', error);
+    return res.status(500).send('Failed to fetch media');
   }
 });
 

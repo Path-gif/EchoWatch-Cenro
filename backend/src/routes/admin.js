@@ -76,6 +76,14 @@ function deriveMunicipality({ manual_location: manualLocation, latitude, longitu
 }
 
 function getPublicMediaUrl(req, media) {
+  if (media.file_data) {
+    return `${req.protocol}://${req.get('host')}/reports/media/${media.id}`;
+  }
+
+  if (media.file_url && media.file_url.startsWith('data:')) {
+    return `${req.protocol}://${req.get('host')}/reports/media/${media.id}`;
+  }
+
   if (media.file_url) {
     return media.file_url;
   }
@@ -188,10 +196,12 @@ router.get('/reports/overview', requireAdmin, async (req, res) => {
          report_id INTEGER REFERENCES reports(id) ON DELETE CASCADE,
          file_path TEXT,
          file_url TEXT,
+         file_data BYTEA,
          mime_type TEXT,
          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
        )`
     );
+    await db.query('ALTER TABLE report_media ADD COLUMN IF NOT EXISTS file_data BYTEA');
 
     const result = await db.query(
       `SELECT
@@ -212,7 +222,7 @@ router.get('/reports/overview', requireAdmin, async (req, res) => {
     );
 
     const mediaResult = await db.query(
-      `SELECT id, report_id, file_path, file_url, mime_type, created_at
+      `SELECT id, report_id, file_path, file_url, file_data, mime_type, created_at
        FROM report_media
        ORDER BY created_at ASC, id ASC`
     );
