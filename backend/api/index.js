@@ -50,6 +50,22 @@ app.get('/', (req, res) => {
   res.json({ ok: true, service: 'denr-citizen-backend' });
 });
 
+app.get('/health', async (req, res) => {
+  try {
+    await require('../src/db').query('SELECT 1');
+    return res.json({ ok: true, service: 'denr-citizen-backend', database: 'connected' });
+  } catch (error) {
+    console.error('Health check error:', error);
+    return res.status(500).json({
+      ok: false,
+      service: 'denr-citizen-backend',
+      database: 'error',
+      error: error?.message || 'Database health check failed',
+      code: error?.code || 'SERVER_ERROR',
+    });
+  }
+});
+
 if (require.main === module) {
   const port = process.env.PORT || 3000;
   app.listen(port, () => console.log(`Server listening on ${port}`));

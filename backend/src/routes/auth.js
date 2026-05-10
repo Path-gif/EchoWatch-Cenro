@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const bcryptjs = require('bcryptjs');
 const db = require('../db');
 const { sendSms } = require('../utils/sms');
+const { sendServerError } = require('../utils/errors');
 
 const router = express.Router();
 
@@ -89,7 +90,7 @@ router.post('/register', async (req, res) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
-    return res.status(500).json({ error: 'Failed to register user' });
+    return sendServerError(res, 'Failed to register user', error);
   }
 });
 
@@ -139,7 +140,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ error: 'Failed to login' });
+    return sendServerError(res, 'Failed to login', error);
   }
 });
 
@@ -203,7 +204,7 @@ router.patch('/me', requireUser, async (req, res) => {
     });
   } catch (error) {
     console.error('Profile update error:', error);
-    return res.status(500).json({ error: 'Failed to update profile' });
+    return sendServerError(res, 'Failed to update profile', error);
   }
 });
 
