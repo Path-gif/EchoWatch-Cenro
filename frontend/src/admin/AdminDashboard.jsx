@@ -263,12 +263,8 @@ export default function AdminDashboard() {
         setMessage(null)
 
         setSelectedReportId((currentId) => {
-          const selectedStillExists = nextOverview.reports.some((report) => report.id === currentId)
-          if (selectedStillExists) {
-            return currentId
-          }
-
-          return nextOverview.reports.find((report) => report.latitude !== null && report.longitude !== null)?.id || null
+          if (!currentId) return null
+          return nextOverview.reports.some((report) => report.id === currentId) ? currentId : null
         })
       } catch (error) {
         if (!isMounted) {
@@ -296,6 +292,24 @@ export default function AdminDashboard() {
     () => overview.reports.find((report) => report.id === selectedReportId) || null,
     [overview.reports, selectedReportId]
   )
+
+  const highestMunicipality = useMemo(() => {
+    return overview.municipality_counts.reduce((highest, entry) => {
+      const count = Number(entry.count) || 0
+      if (!highest || count > highest.count) {
+        return { municipality: entry.municipality, count }
+      }
+      return highest
+    }, null)
+  }, [overview.municipality_counts])
+
+  const highestMunicipalityReports = useMemo(() => {
+    if (!highestMunicipality?.municipality || highestMunicipality.count === 0) {
+      return []
+    }
+
+    return overview.reports.filter((report) => report.municipality === highestMunicipality.municipality)
+  }, [highestMunicipality, overview.reports])
 
   const chartData = useMemo(() => {
     return {
@@ -445,18 +459,37 @@ export default function AdminDashboard() {
         <div className="rounded-[1.25rem] border border-[#d6dfd9] bg-white p-4 shadow-sm sm:rounded-[1.7rem] sm:p-6">
           <div className="flex flex-col gap-3 border-b border-[#e5ece8] pb-5 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Focused Report</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Focused Municipality</p>
               <h3 className="mt-2 break-words text-xl font-black text-[#123629] sm:text-2xl">
-                {selectedReport ? toDisplayText(selectedReport.reference_number, 'No reference number') : 'No report selected'}
+                {selectedReport
+                  ? toDisplayText(selectedReport.reference_number, 'No reference number')
+                  : highestMunicipalityReports.length > 0
+                    ? `${highestMunicipality.municipality} reported cases`
+                    : 'No reported cases yet'}
               </h3>
             </div>
-            {selectedReport && (
+            {selectedReport ? (
               <div className="self-start rounded-2xl border border-[#cfe0d7] bg-[#f4faf7] px-3 py-2 text-left sm:rounded-full sm:px-4 sm:text-right">
                 <p className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-[#0f5f46]">Timestamp</p>
                 <p className="mt-1 text-sm font-semibold text-slate-800 sm:whitespace-nowrap">{formatTimestamp(selectedReport.created_at)}</p>
               </div>
-            )}
+            ) : highestMunicipalityReports.length > 0 ? (
+              <div className="self-start rounded-2xl border border-[#cfe0d7] bg-[#f4faf7] px-3 py-2 text-left sm:rounded-full sm:px-4 sm:text-right">
+                <p className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-[#0f5f46]">Total Cases</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800 sm:whitespace-nowrap">{highestMunicipality.count} report{highestMunicipality.count === 1 ? '' : 's'}</p>
+              </div>
+            ) : null}
           </div>
+
+          {selectedReport && (
+            <button
+              type="button"
+              onClick={() => setSelectedReportId(null)}
+              className="mt-4 inline-flex min-h-10 items-center rounded-full border border-[#cfd8d3] bg-white px-4 text-sm font-black text-[#1a5e20] shadow-[0_2px_0_#cfd8d3] transition active:translate-y-[1px] active:shadow-none"
+            >
+              Back to case list
+            </button>
+            )}
 
           {selectedReport ? (
             <div className="mt-4 space-y-3 sm:mt-5 sm:space-y-4">
@@ -507,10 +540,43 @@ export default function AdminDashboard() {
                 <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Location Source</p>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{toDisplayText(selectedReport.manual_location, 'Coordinate-only report')}</p>
               </div>
+
+              <div className="rounded-[1.05rem] border border-[#dbe4df] bg-[#f8fbf9] px-4 py-4 sm:rounded-[1.2rem]">
+                <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Description</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{toDisplayText(selectedReport.description, 'Not available')}</p>
+              </div>
+            </div>
+          ) : highestMunicipalityReports.length > 0 ? (
+            <div className="mt-4 space-y-3 sm:mt-5">
+              <p className="rounded-[1.05rem] border border-[#dbe4df] bg-[#f8fbf9] px-4 py-3 text-sm font-semibold leading-6 text-slate-600">
+                Showing every reported case from the municipality with the highest report count.
+              </p>
+
+              <div className="max-h-[32rem] space-y-3 overflow-y-auto pr-1">
+                {highestMunicipalityReports.map((report) => (
+                  <article key={report.id} className="rounded-[1.05rem] border border-[#dbe4df] bg-white p-4 shadow-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="break-words text-base font-black text-[#123629]">{toDisplayText(report.reference_number, 'No reference number')}</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-700">{toDisplayText(report.violation_type, 'Untitled report')}</p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">{formatTimestamp(report.created_at)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedReportId(report.id)}
+                        className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-full border border-[#003915] bg-[#00441b] px-4 text-sm font-black text-white shadow-[0_2px_0_#003915] transition active:translate-y-[1px] active:shadow-none"
+                      >
+                        View Details
+                      </button>
+                    </div>
+                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{toDisplayText(report.description, 'Not available')}</p>
+                  </article>
+                ))}
+              </div>
             </div>
           ) : (
             <div className="mt-5 rounded-[1.05rem] border border-dashed border-[#ccd7d1] bg-[#f8fbf9] px-4 py-8 text-sm text-slate-500 sm:rounded-[1.2rem]">
-              Select a report with coordinates to focus the map and open its location details.
+              Once reports are submitted, the municipality with the highest case count will appear here.
             </div>
           )}
         </div>
