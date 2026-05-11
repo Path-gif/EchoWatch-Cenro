@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Chart as ChartJS,
   BarElement,
@@ -120,7 +121,7 @@ export default function AdminDashboard() {
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0f5f46] sm:text-[11px] sm:tracking-[0.22em]">Live Municipal Overview</p>
             <h2 className="mt-2 text-2xl font-black leading-tight text-[#123629] sm:text-3xl">Administrative Report Monitoring</h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
-              Track report volume across municipalities and review case details from the Reports section.
+              Track report volume across municipalities, monitor case levels, and open the reports workspace for detailed review.
             </p>
           </div>
 
@@ -181,6 +182,24 @@ export default function AdminDashboard() {
           ) : (
             <Bar data={chartData} options={chartOptions} />
           )}
+        </div>
+      </section>
+
+      <section className="rounded-[1.25rem] border border-[#d6dfd9] bg-[#f7faf8] p-4 shadow-sm sm:rounded-[1.5rem] sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Reports Workspace</p>
+            <h3 className="mt-2 text-xl font-black text-[#123629] sm:text-2xl">Review filtered citizen reports</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              Open the reports page to filter by municipality, reported case, or citizen reference code.
+            </p>
+          </div>
+          <Link
+            to="/admin/reports"
+            className="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#003915] bg-[#00441b] px-5 text-sm font-black text-white shadow-[0_3px_0_#003112]"
+          >
+            Open Reports
+          </Link>
         </div>
       </section>
     </div>

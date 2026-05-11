@@ -127,6 +127,7 @@ function DetailField({ label, children }) {
 export default function AdminReports() {
   const [overview, setOverview] = useState({ generated_at: null, municipality_counts: [], reports: [] })
   const [selectedReportId, setSelectedReportId] = useState(null)
+  const [municipalityFilter, setMunicipalityFilter] = useState('all')
   const [caseFilter, setCaseFilter] = useState('all')
   const [referenceSearch, setReferenceSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -172,11 +173,12 @@ export default function AdminReports() {
     const query = referenceSearch.trim().toLowerCase()
 
     return overview.reports.filter((report) => {
+      const matchesMunicipality = municipalityFilter === 'all' || toDisplayText(report.municipality) === municipalityFilter
       const matchesCase = caseFilter === 'all' || toDisplayText(report.violation_type) === caseFilter
       const matchesReference = !query || toDisplayText(report.reference_number).toLowerCase().includes(query)
-      return matchesCase && matchesReference
+      return matchesMunicipality && matchesCase && matchesReference
     })
-  }, [caseFilter, overview.reports, referenceSearch])
+  }, [caseFilter, municipalityFilter, overview.reports, referenceSearch])
 
   const selectedReport = useMemo(() => {
     return overview.reports.find((report) => report.id === selectedReportId) || null
@@ -238,7 +240,7 @@ export default function AdminReports() {
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0f5f46] sm:text-[11px] sm:tracking-[0.22em]">Reports Workspace</p>
             <h2 className="mt-2 text-2xl font-black leading-tight text-[#123629] sm:text-3xl">Reported Cases</h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
-              Review reported areas, filter cases by violation type, and search by citizen reference code.
+              Review reported areas, filter by municipality and reported case, and search by citizen reference code.
             </p>
           </div>
           <div className="rounded-2xl border border-[#d8e0db] bg-[#f7faf8] px-4 py-3 text-sm text-slate-600 lg:min-w-56">
@@ -319,7 +321,7 @@ export default function AdminReports() {
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46]">Reports Table</p>
           <h3 className="mt-2 text-xl font-black text-[#123629] sm:text-2xl">Municipality Report Entries</h3>
 
-          <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_18rem_auto]">
+          <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_13rem_16rem_auto]">
             <label className="grid gap-2">
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Search reference code</span>
               <input
@@ -331,7 +333,20 @@ export default function AdminReports() {
               />
             </label>
             <label className="grid gap-2">
-              <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Filter by case</span>
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Municipality</span>
+              <select
+                value={municipalityFilter}
+                onChange={(event) => setMunicipalityFilter(event.target.value)}
+                className="min-h-12 rounded-xl border border-[#cfd8d3] bg-white px-4 text-sm font-semibold text-slate-800 outline-none focus:border-[#0f5f46] focus:ring-2 focus:ring-[#0f5f46]/15"
+              >
+                <option value="all">All municipalities</option>
+                {MUNICIPALITIES.map((municipality) => (
+                  <option key={municipality.name} value={municipality.name}>{municipality.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Reported case</span>
               <select
                 value={caseFilter}
                 onChange={(event) => setCaseFilter(event.target.value)}
@@ -345,6 +360,7 @@ export default function AdminReports() {
               type="button"
               onClick={() => {
                 setReferenceSearch('')
+                setMunicipalityFilter('all')
                 setCaseFilter('all')
               }}
               className="min-h-12 self-end rounded-xl border border-[#cfd8d3] bg-white px-5 text-sm font-black text-[#1a5e20] shadow-[0_2px_0_#cfd8d3]"
