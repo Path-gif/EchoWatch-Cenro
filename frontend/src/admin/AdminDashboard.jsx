@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   Chart as ChartJS,
   BarElement,
@@ -9,32 +9,59 @@ import {
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 import L from 'leaflet'
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
+import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
-import markerIcon from 'leaflet/dist/images/marker-icon.png'
-import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import api from '../lib/api'
 import { toDisplayText } from '../lib/text'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-})
-
 const REFRESH_INTERVAL_MS = 15000
 const DEFAULT_CENTER = [14.987, 120.105]
 const DEFAULT_ZOOM = 10
-const FOCUSED_ZOOM = 15
+
+const MUNICIPALITIES = [
+  { name: 'Olongapo', latitude: 14.8386, longitude: 120.2842 },
+  { name: 'Subic', latitude: 14.8799, longitude: 120.2312 },
+  { name: 'San Marcelino', latitude: 14.9742, longitude: 120.1579 },
+  { name: 'San Antonio', latitude: 14.9471, longitude: 120.0897 },
+  { name: 'San Narciso', latitude: 15.0167, longitude: 120.0833 },
+  { name: 'San Felipe', latitude: 15.0622, longitude: 120.0708 },
+  { name: 'Cabangan', latitude: 15.1673, longitude: 120.0334 },
+]
 
 function getReportCountColor(count) {
   if (count >= 20) return '#dc2626'
   if (count >= 10) return '#d6b44c'
   if (count >= 1) return '#1f6a53'
   return '#d8e0db'
+}
+
+function createMunicipalityIcon(count) {
+  const color = getReportCountColor(count)
+  const label = count > 99 ? '99+' : String(count)
+
+  return L.divIcon({
+    className: '',
+    html: `
+      <div style="
+        width: 46px;
+        height: 46px;
+        border-radius: 9999px;
+        background: ${color};
+        color: ${count === 0 ? '#4b5563' : '#ffffff'};
+        border: 4px solid #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.24);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 900 13px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      ">${label}</div>
+    `,
+    iconSize: [46, 46],
+    iconAnchor: [23, 23],
+    popupAnchor: [0, -22],
+  })
 }
 
 function formatTimestamp(value) {
@@ -88,46 +115,16 @@ function EvidencePreview({ report, compact = false }) {
   )
 }
 
-function MapFocusController({ report, markerRefs }) {
-  const map = useMap()
-
-  useEffect(() => {
-    if (report?.latitude === null || report?.latitude === undefined || report?.longitude === null || report?.longitude === undefined) {
-      return
-    }
-
-    map.flyTo([report.latitude, report.longitude], FOCUSED_ZOOM, { duration: 1.1 })
-
-    const marker = markerRefs.current[report.id]
-    if (marker) {
-      marker.openPopup()
-    }
-  }, [map, markerRefs, report])
-
-  return null
-}
-
-function OverviewMap({ reports, selectedReport, markerRefs }) {
-  const reportsWithCoordinates = reports.filter((report) => report.latitude !== null && report.longitude !== null)
+function OverviewMap({ municipalityCounts }) {
+  const countByMunicipality = municipalityCounts.reduce((groups, item) => {
+    groups[item.municipality] = Number(item.count) || 0
+    return groups
+  }, {})
 
   return (
     <MapContainer
-      center={
-        selectedReport?.latitude !== null &&
-        selectedReport?.latitude !== undefined &&
-        selectedReport?.longitude !== null &&
-        selectedReport?.longitude !== undefined
-          ? [selectedReport.latitude, selectedReport.longitude]
-          : DEFAULT_CENTER
-      }
-      zoom={
-        selectedReport?.latitude !== null &&
-        selectedReport?.latitude !== undefined &&
-        selectedReport?.longitude !== null &&
-        selectedReport?.longitude !== undefined
-          ? FOCUSED_ZOOM
-          : DEFAULT_ZOOM
-      }
+      center={DEFAULT_CENTER}
+      zoom={DEFAULT_ZOOM}
       scrollWheelZoom
       className="h-[320px] w-full sm:h-[420px]"
     >
@@ -136,27 +133,26 @@ function OverviewMap({ reports, selectedReport, markerRefs }) {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      <MapFocusController report={selectedReport} markerRefs={markerRefs} />
-
-      {reportsWithCoordinates.map((report) => (
+      {MUNICIPALITIES.map((municipality) => {
+        const count = countByMunicipality[municipality.name] || 0
+        return (
         <Marker
-          key={report.id}
-          position={[report.latitude, report.longitude]}
-          ref={(marker) => {
-            if (marker) {
-              markerRefs.current[report.id] = marker
-            }
-          }}
+          key={municipality.name}
+          position={[municipality.latitude, municipality.longitude]}
+          icon={createMunicipalityIcon(count)}
         >
           <Popup>
             <div className="min-w-[180px] text-sm text-slate-700">
-              <p className="font-bold text-slate-900">{toDisplayText(report.municipality, 'Unknown municipality')}</p>
-              <p className="mt-1">{toDisplayText(report.violation_type, 'Untitled report')}</p>
-              <p className="mt-1 text-xs text-slate-500">{formatTimestamp(report.created_at)}</p>
+              <p className="font-bold text-slate-900">{municipality.name}</p>
+              <p className="mt-1">{count} reported case{count === 1 ? '' : 's'}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {count >= 20 ? 'High alert' : count >= 10 ? 'Moderate watch' : count >= 1 ? 'Active reports' : 'No reported cases'}
+              </p>
             </div>
           </Popup>
         </Marker>
-      ))}
+        )
+      })}
     </MapContainer>
   )
 }
@@ -172,7 +168,6 @@ export default function AdminDashboard() {
   const [openMenuId, setOpenMenuId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState(null)
-  const markerRefs = useRef({})
 
   async function handleDeleteReport(reportId, event) {
     event.stopPropagation()
@@ -434,15 +429,15 @@ export default function AdminDashboard() {
             <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Interactive Map</p>
             <h3 className="mt-2 text-xl font-black text-[#123629] sm:text-2xl">Reported Areas</h3>
             <p className="mt-2 text-sm text-slate-600">
-              Click a report row or use the action button to zoom directly to the reported location.
+              Municipal markers show total reported cases for Olongapo, Subic, San Marcelino, San Antonio, San Narciso, San Felipe, and Cabangan.
             </p>
           </div>
 
           <div className="bg-[#eef3f0]">
             {loading ? (
-              <div className="flex h-[320px] items-center justify-center text-sm text-slate-500 sm:h-[420px]">Loading map markers...</div>
+              <div className="flex h-[320px] items-center justify-center text-sm text-slate-500 sm:h-[420px]">Loading municipal markers...</div>
             ) : (
-              <OverviewMap reports={overview.reports} selectedReport={selectedReport} markerRefs={markerRefs} />
+              <OverviewMap municipalityCounts={overview.municipality_counts} />
             )}
           </div>
         </div>
