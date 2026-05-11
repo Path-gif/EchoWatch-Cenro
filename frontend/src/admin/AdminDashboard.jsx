@@ -30,6 +30,13 @@ const DEFAULT_CENTER = [14.987, 120.105]
 const DEFAULT_ZOOM = 10
 const FOCUSED_ZOOM = 15
 
+function getReportCountColor(count) {
+  if (count >= 20) return '#dc2626'
+  if (count >= 10) return '#d6b44c'
+  if (count >= 1) return '#1f6a53'
+  return '#d8e0db'
+}
+
 function formatTimestamp(value) {
   if (!value) return 'No timestamp'
 
@@ -296,17 +303,13 @@ export default function AdminDashboard() {
   )
 
   const chartData = useMemo(() => {
-    const highestCount = Math.max(...overview.municipality_counts.map((entry) => entry.count), 0)
-
     return {
       labels: overview.municipality_counts.map((entry) => entry.municipality),
       datasets: [
         {
           label: 'Reports',
           data: overview.municipality_counts.map((entry) => entry.count),
-          backgroundColor: overview.municipality_counts.map((entry) =>
-            entry.count === highestCount && highestCount > 0 ? '#d6b44c' : '#1f6a53'
-          ),
+          backgroundColor: overview.municipality_counts.map((entry) => getReportCountColor(Number(entry.count) || 0)),
           borderRadius: 10,
           maxBarThickness: 48,
         },
@@ -407,7 +410,11 @@ export default function AdminDashboard() {
             <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Reports Per Municipality</p>
             <h3 className="mt-2 text-xl font-black text-[#123629] sm:text-2xl">Municipal Distribution</h3>
           </div>
-          <p className="text-sm text-slate-500"></p>
+          <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-600">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#d6dfd9] bg-white px-3 py-1"><span className="h-2.5 w-2.5 rounded-full bg-[#1f6a53]" />1-9</span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#d6dfd9] bg-white px-3 py-1"><span className="h-2.5 w-2.5 rounded-full bg-[#d6b44c]" />10-19</span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#d6dfd9] bg-white px-3 py-1"><span className="h-2.5 w-2.5 rounded-full bg-[#dc2626]" />20+</span>
+          </div>
         </div>
 
         <div className="mt-4 h-[260px] sm:mt-6 sm:h-[340px]">
