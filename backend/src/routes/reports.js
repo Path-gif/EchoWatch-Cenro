@@ -229,6 +229,11 @@ router.post('/', requireUser, uploadEvidence, async (req, res) => {
     return res.status(400).json({ error: 'Report location must be inside Olongapo, Subic, San Marcelino, San Antonio, San Narciso, San Felipe, or Cabangan.' });
   }
 
+  const hasEvidencePhoto = Array.isArray(req.files) && req.files.some((file) => String(file.mimetype || '').startsWith('image/'));
+  if (!hasEvidencePhoto) {
+    return res.status(400).json({ error: 'Photo evidence is required before submitting a report.' });
+  }
+
   const client = await db.pool.connect();
 
   try {

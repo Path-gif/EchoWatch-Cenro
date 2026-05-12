@@ -218,7 +218,8 @@ export default function SubmitReport() {
   const hasDescription = Boolean(formData.description.trim())
   const hasLocation = formData.latitude != null && formData.longitude != null
   const hasIdentitySelection = formData.anonymous !== null
-  const isFormValid = hasTitle && hasDate && hasDescription && hasLocation && hasIdentitySelection
+  const hasPhoto = mediaFiles.some((file) => file.type.startsWith('image/'))
+  const isFormValid = hasTitle && hasDate && hasDescription && hasLocation && hasIdentitySelection && hasPhoto
 
   const fieldHasError = (valid) => submitAttempted && !valid
 
@@ -239,7 +240,7 @@ export default function SubmitReport() {
     }
 
     if (!isFormValid) {
-      setMessage({ type: 'error', text: 'Complete all required fields and pin a valid report location before submitting.' })
+      setMessage({ type: 'error', text: 'Complete all required fields, add at least one photo, and pin a valid report location before submitting.' })
       return
     }
 
@@ -469,21 +470,23 @@ export default function SubmitReport() {
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault()
-                  const items = Array.from(e.dataTransfer.files || [])
-                  if (items.length) setMediaFiles((cur) => [...cur, ...items].slice(0, 8))
+                  const items = Array.from(e.dataTransfer.files || []).filter((file) => file.type.startsWith('image/'))
+                  if (items.length) setMediaFiles((cur) => [...cur, ...items].slice(0, 5))
                 }}
-                className="rounded-xl rounded-tl-none border border-dashed border-[#cfd8d3] bg-[#f8f9fa] p-5 text-center text-sm text-[#495057]"
+                className={`rounded-xl rounded-tl-none border border-dashed bg-[#f8f9fa] p-5 text-center text-sm text-[#495057] ${
+                  fieldHasError(hasPhoto) ? 'border-[#d56b5f]' : 'border-[#cfd8d3]'
+                }`}
               >
-                <p className="font-black text-[#212529]">Add photos or videos</p>
-                <p className="mt-1 text-xs font-semibold">Maximum 8 files.</p>
+                <p className="font-black text-[#212529]">Add photo evidence</p>
+                <p className="mt-1 text-xs font-semibold">At least one photo is required. Maximum 5 files.</p>
                 <input
                   id="mediaInput"
                   type="file"
-                  accept="image/*,video/*"
+                  accept="image/*"
                   multiple
                   onChange={(e) => {
-                    const files = Array.from(e.target.files || [])
-                    if (files.length) setMediaFiles((cur) => [...cur, ...files].slice(0, 8))
+                    const files = Array.from(e.target.files || []).filter((file) => file.type.startsWith('image/'))
+                    if (files.length) setMediaFiles((cur) => [...cur, ...files].slice(0, 5))
                     e.target.value = ''
                   }}
                   className="hidden"
@@ -495,16 +498,13 @@ export default function SubmitReport() {
                 >
                   Choose Files
                 </button>
+                {fieldHasError(hasPhoto) && <p className="mt-3 text-xs font-semibold text-[#b33a2e]">Photo evidence is required before submitting.</p>}
 
                 {mediaFiles.length > 0 && (
                   <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {mediaFiles.map((file, idx) => (
                       <div key={`${file.name}-${idx}`} className="relative overflow-hidden rounded-xl rounded-tr-none border border-[#d7e0da] bg-white p-1 text-center">
-                        {file.type.startsWith('image/') ? (
-                          <img src={URL.createObjectURL(file)} alt={file.name} className="h-20 w-full rounded-[14px] object-cover" />
-                        ) : (
-                          <div className="flex h-20 items-center justify-center rounded-lg bg-[#f8f9fa] text-xs font-black text-[#495057]">Video</div>
-                        )}
+                        <img src={URL.createObjectURL(file)} alt={file.name} className="h-20 w-full rounded-[14px] object-cover" />
                         <button
                           type="button"
                           onClick={() => setMediaFiles((cur) => cur.filter((_, i) => i !== idx))}
@@ -590,7 +590,7 @@ export default function SubmitReport() {
                   aria-label="Show required fields"
                   onClick={() => {
                     setSubmitAttempted(true)
-                    setMessage({ type: 'error', text: 'Complete all required fields and pin a valid report location before submitting.' })
+                    setMessage({ type: 'error', text: 'Complete all required fields, add at least one photo, and pin a valid report location before submitting.' })
                   }}
                   className="absolute inset-0 rounded-full"
                 />
