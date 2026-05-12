@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import L from 'leaflet'
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
+import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../lib/api'
 import { toDisplayText } from '../lib/text'
@@ -8,6 +8,8 @@ import { toDisplayText } from '../lib/text'
 const REFRESH_INTERVAL_MS = 15000
 const DEFAULT_CENTER = [14.987, 120.105]
 const DEFAULT_ZOOM = 10
+const CLUSTER_MIN_REPORTS = 3
+const CLUSTER_EXPAND_ZOOM = 13
 
 const MUNICIPALITIES = [
   { name: 'Olongapo', latitude: 14.8386, longitude: 120.2842 },
@@ -34,30 +36,47 @@ function getReportCountColor(count) {
   return '#d8e0db'
 }
 
-function createMunicipalityIcon(count) {
+function createReportDotIcon() {
+  return L.divIcon({
+    className: '',
+    html: `
+      <div style="
+        width: 18px;
+        height: 18px;
+        border-radius: 9999px;
+        background: #0f5f46;
+        border: 4px solid #ffffff;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.28);
+      "></div>
+    `,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    popupAnchor: [0, -9],
+  })
+}
+
+function createReportClusterIcon(count) {
   const color = getReportCountColor(count)
-  const label = count > 99 ? '99+' : String(count)
 
   return L.divIcon({
     className: '',
     html: `
       <div style="
-        width: 46px;
-        height: 46px;
+        width: 42px;
+        height: 42px;
         border-radius: 9999px;
+        display: grid;
+        place-items: center;
         background: ${color};
-        color: ${count === 0 ? '#4b5563' : '#ffffff'};
-        border: 4px solid #ffffff;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.24);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font: 900 13px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      ">${label}</div>
+        border: 5px solid #ffffff;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.3);
+        color: #ffffff;
+        font: 800 14px/1 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      ">${count}</div>
     `,
-    iconSize: [46, 46],
-    iconAnchor: [23, 23],
-    popupAnchor: [0, -22],
+    iconSize: [42, 42],
+    iconAnchor: [21, 21],
+    popupAnchor: [0, -21],
   })
 }
 
@@ -107,6 +126,24 @@ function normalizeMediaUrl(url) {
   return `${baseURL}${url.startsWith('/') ? '' : '/'}${url}`
 }
 
+function getReportPosition(report) {
+  const latitude = Number(report.latitude)
+  const longitude = Number(report.longitude)
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+  return [latitude, longitude]
+}
+
+function getClusterCenter(reports) {
+  const totals = reports.reduce((sum, report) => {
+    sum.latitude += report.position[0]
+    sum.longitude += report.position[1]
+    return sum
+  }, { latitude: 0, longitude: 0 })
+
+  return [totals.latitude / reports.length, totals.longitude / reports.length]
+}
+
 function EvidencePreview({ report }) {
   const image = (report.evidence_media || []).find((media) => media.is_image && media.url)
   if (!image) return <span className="text-sm text-slate-400">No photo</span>
@@ -120,11 +157,92 @@ function EvidencePreview({ report }) {
   )
 }
 
-function OverviewMap({ municipalityCounts }) {
-  const countByMunicipality = municipalityCounts.reduce((groups, item) => {
-    groups[item.municipality] = Number(item.count) || 0
-    return groups
-  }, {})
+function MapReportMarkers({ groupedReports, onSelectReport }) {
+  const map = useMap()
+  const [zoom, setZoom] = useState(map.getZoom())
+
+  useEffect(() => {
+    function handleZoomEnd() {
+      setZoom(map.getZoom())
+    }
+
+    map.on('zoomend', handleZoomEnd)
+    return () => map.off('zoomend', handleZoomEnd)
+  }, [map])
+
+  return groupedReports.flatMap((group) => {
+    const shouldCluster = group.reports.length >= CLUSTER_MIN_REPORTS && zoom < CLUSTER_EXPAND_ZOOM
+
+    if (shouldCluster) {
+      const center = getClusterCenter(group.reports)
+      return (
+        <Marker
+          key={`${group.municipality}-cluster`}
+          position={center}
+          icon={createReportClusterIcon(group.reports.length)}
+          eventHandlers={{
+            click: () => map.setView(center, CLUSTER_EXPAND_ZOOM, { animate: true }),
+          }}
+        >
+          <Popup>
+            <div className="min-w-[190px] text-sm text-slate-700">
+              <p className="font-bold text-slate-900">{group.municipality}</p>
+              <p className="mt-1">{group.reports.length} mapped reports</p>
+              <p className="mt-1 text-xs text-slate-500">Zoom in to view individual report dots.</p>
+            </div>
+          </Popup>
+        </Marker>
+      )
+    }
+
+    return group.reports.map((report) => (
+      <Marker
+        key={report.id || `${group.municipality}-${report.position.join(',')}`}
+        position={report.position}
+        icon={createReportDotIcon()}
+        eventHandlers={{ click: () => onSelectReport(report.id) }}
+      >
+        <Popup>
+          <div className="min-w-[190px] text-sm text-slate-700">
+            <p className="font-bold text-slate-900">{toDisplayText(report.reference_number, 'Report')}</p>
+            <p className="mt-1">{toDisplayText(report.violation_type, 'Untitled report')}</p>
+            <p className="mt-1 text-xs text-slate-500">{group.municipality}</p>
+            <button
+              type="button"
+              onClick={() => onSelectReport(report.id)}
+              className="mt-3 rounded-full border border-[#cfd8d3] bg-white px-3 py-1.5 text-xs font-black text-[#0f5f46]"
+            >
+              View details
+            </button>
+          </div>
+        </Popup>
+      </Marker>
+    ))
+  })
+}
+
+function OverviewMap({ reports, onSelectReport }) {
+  const supportedMunicipalities = useMemo(() => new Set(MUNICIPALITIES.map((municipality) => municipality.name)), [])
+  const groupedReports = useMemo(() => {
+    const groups = MUNICIPALITIES.map((municipality) => ({
+      municipality: municipality.name,
+      reports: [],
+    }))
+    const groupByName = groups.reduce((lookup, group) => {
+      lookup[group.municipality] = group
+      return lookup
+    }, {})
+
+    reports.forEach((report) => {
+      const municipality = toDisplayText(report.municipality)
+      const position = getReportPosition(report)
+      if (!supportedMunicipalities.has(municipality) || !position) return
+
+      groupByName[municipality].reports.push({ ...report, position })
+    })
+
+    return groups.filter((group) => group.reports.length > 0)
+  }, [reports, supportedMunicipalities])
 
   return (
     <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom className="h-[320px] w-full sm:h-[420px]">
@@ -132,22 +250,7 @@ function OverviewMap({ municipalityCounts }) {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {MUNICIPALITIES.map((municipality) => {
-        const count = countByMunicipality[municipality.name] || 0
-        return (
-          <Marker key={municipality.name} position={[municipality.latitude, municipality.longitude]} icon={createMunicipalityIcon(count)}>
-            <Popup>
-              <div className="min-w-[180px] text-sm text-slate-700">
-                <p className="font-bold text-slate-900">{municipality.name}</p>
-                <p className="mt-1">{count} reported case{count === 1 ? '' : 's'}</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {count >= 20 ? 'High alert' : count >= 10 ? 'Moderate watch' : count >= 1 ? 'Active reports' : 'No reported cases'}
-                </p>
-              </div>
-            </Popup>
-          </Marker>
-        )
-      })}
+      <MapReportMarkers groupedReports={groupedReports} onSelectReport={onSelectReport} />
     </MapContainer>
   )
 }
@@ -444,14 +547,14 @@ export default function AdminReports() {
             <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46]">Interactive Map</p>
             <h3 className="mt-2 text-xl font-black text-[#123629] sm:text-2xl">Reported Areas</h3>
             <p className="mt-2 text-sm text-slate-600">
-              Municipal markers show total reported cases for Olongapo, Subic, San Marcelino, San Antonio, San Narciso, San Felipe, and Cabangan.
+              Report dots show exact mapped locations, while municipalities with three or more reports cluster until you zoom in.
             </p>
           </div>
           <div className="bg-[#eef3f0]">
             {loading ? (
-              <div className="flex h-[320px] items-center justify-center text-sm text-slate-500 sm:h-[420px]">Loading municipal markers...</div>
+              <div className="flex h-[320px] items-center justify-center text-sm text-slate-500 sm:h-[420px]">Loading report markers...</div>
             ) : (
-              <OverviewMap municipalityCounts={overview.municipality_counts} />
+              <OverviewMap reports={overview.reports} onSelectReport={setSelectedReportId} />
             )}
           </div>
         </div>
