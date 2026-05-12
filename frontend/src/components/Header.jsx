@@ -27,11 +27,89 @@ function formatNotificationDate(value) {
   }).format(new Date(value))
 }
 
+function SidebarIcon({ name }) {
+  const paths = {
+    dashboard: (
+      <>
+        <path d="M4 5h6v6H4V5Z" />
+        <path d="M14 5h6v6h-6V5Z" />
+        <path d="M4 15h6v4H4v-4Z" />
+        <path d="M14 15h6v4h-6v-4Z" />
+      </>
+    ),
+    report: (
+      <>
+        <path d="M9 3h6l4 4v14H5V3h4Z" />
+        <path d="M14 3v5h5" />
+        <path d="M8.5 13h7" />
+        <path d="M8.5 17h5" />
+      </>
+    ),
+    list: (
+      <>
+        <path d="M8 6h12" />
+        <path d="M8 12h12" />
+        <path d="M8 18h12" />
+        <path d="M4 6h.01" />
+        <path d="M4 12h.01" />
+        <path d="M4 18h.01" />
+      </>
+    ),
+    profile: (
+      <>
+        <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+        <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+      </>
+    ),
+    login: (
+      <>
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+        <path d="M10 17l5-5-5-5" />
+        <path d="M15 12H3" />
+      </>
+    ),
+    logout: (
+      <>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <path d="M16 17l5-5-5-5" />
+        <path d="M21 12H9" />
+      </>
+    ),
+  }
+
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-5 w-5 shrink-0"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {paths[name]}
+    </svg>
+  )
+}
+
+function SidebarLink({ icon, children, to }) {
+  return (
+    <Link
+      to={to}
+      title={typeof children === 'string' ? children : undefined}
+      className="flex min-h-12 items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/10 px-3 py-3 text-sm font-black transition hover:bg-white/15 md:justify-start md:px-4"
+    >
+      <SidebarIcon name={icon} />
+      <span className="hidden md:inline">{children}</span>
+    </Link>
+  )
+}
+
 export default function Header() {
   const location = useLocation()
   const navigate = useNavigate()
   const [user, setUser] = useState(readUser())
-  const [menuOpen, setMenuOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [seenNotifications, setSeenNotifications] = useState(readSeenNotifications())
@@ -40,7 +118,6 @@ export default function Header() {
 
   useEffect(() => {
     setUser(readUser())
-    setMenuOpen(false)
     setNotificationOpen(false)
 
     function handleUserUpdated() {
@@ -93,78 +170,47 @@ export default function Header() {
 
       return nextValue
     })
-    setMenuOpen(false)
   }
 
   function handleLogout() {
     localStorage.clear()
     sessionStorage.clear()
     setUser(null)
-    setMenuOpen(false)
     setNotificationOpen(false)
     setNotifications([])
-    navigate('/login', { replace: true })
+    navigate('/', { replace: true })
   }
 
   return (
-    <header className="sticky top-0 z-40 shadow-lg">
-      <div className="border-b border-[#d5d5d5] bg-[#f5f5f5] text-[#1f1f1f]">
-        <div className="flex h-10 w-full items-center justify-between px-4 text-xs sm:px-6 lg:px-8">
-          <div className="font-semibold uppercase tracking-[0.22em] text-[#4f4f4f]">GOVPH</div>
-          <div className="hidden text-[11px] text-[#5c5c5c] sm:block">Official regional portal reference styling adapted for citizen reporting</div>
-        </div>
-      </div>
-
-      <div className="relative border-b border-emerald-950/10 bg-[#0f5f46] text-white">
-        <div className="flex min-h-[78px] w-full items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <Link
-              to="/"
-              aria-label="Go to landing page"
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-white/30 transition hover:scale-105"
-            >
-              <img src="/ecowatch-logo.svg" alt="EcoWatch logo" className="h-[44px] w-[44px] rounded-full object-contain" />
-            </Link>
-            <Link to={isAuthenticated ? '/home' : '/login'} className="min-w-0 self-center leading-tight">
-              <p className="truncate text-[11px] font-semibold uppercase tracking-[0.22em] text-[#e5c76b] sm:text-xs">Republic of the Philippines</p>
-              <h1 className="truncate text-lg font-bold sm:text-[1.6rem] sm:leading-[1.15] lg:text-[1.75rem]">DENR CENRO</h1>
-              <p className="truncate pt-1 text-base font-medium text-emerald-100/90">
-                {user?.name ? `Hi, ${toDisplayText(user.name)}` : 'Citizen portal for verified environmental monitoring reports'}
-              </p>
-            </Link>
+    <>
+      <header className="fixed left-20 right-0 top-0 z-30 border-b border-emerald-950/10 bg-[#0f5f46] px-3 py-3 text-white shadow-lg md:left-64 md:px-5">
+        <div className="flex min-h-14 items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-[#e5c76b] sm:text-[11px] sm:tracking-[0.2em]">EcoWatch Citizen Portal</p>
+            <h1 className="truncate text-base font-black sm:text-xl">Environmental Reporting Dashboard</h1>
           </div>
-
-          {!isAuthenticated ? (
-            <div className="flex shrink-0 items-center gap-2">
-              <Link
-                to="/admin-login"
-                className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/35 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
-              >
-                Admin Login
-              </Link>
-            </div>
-          ) : (
-            <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-3">
+            {isAuthenticated ? (
               <div className="relative">
                 <button
                   type="button"
                   aria-label="Open report notifications"
                   aria-expanded={notificationOpen}
                   onClick={handleToggleNotifications}
-                  className="relative inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#003915] bg-[#00441b] text-white shadow-[0_3px_0_#003915,0_10px_22px_rgba(0,38,15,0.18)] transition hover:bg-[#083f1d] active:translate-y-[2px] active:shadow-[0_1px_0_#003915,0_6px_14px_rgba(0,38,15,0.16)]"
+                  className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#003915] bg-[#00441b] text-white shadow-[0_3px_0_#003915,0_10px_22px_rgba(0,38,15,0.18)] transition hover:bg-[#083f1d] sm:h-12 sm:w-12"
                 >
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 0 1-6 0m6 0H9" />
                   </svg>
-                  {unreadCount > 0 && (
+                  {unreadCount > 0 ? (
                     <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e5c76b] px-1 text-[11px] font-black text-[#0b3f30]">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
-                  )}
+                  ) : null}
                 </button>
 
                 {notificationOpen && (
-                  <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-white/15 bg-[#25765b] text-white shadow-2xl ring-1 ring-black/10">
+                  <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(20rem,calc(100vw-6rem))] overflow-hidden rounded-2xl border border-white/15 bg-[#25765b] text-white shadow-2xl ring-1 ring-black/10 sm:w-[22rem]">
                     <div className="border-b border-white/10 px-4 py-3">
                       <p className="text-sm font-bold">Report Notifications</p>
                       <p className="mt-1 text-xs text-emerald-50/80">Completed report activity appears here.</p>
@@ -198,51 +244,69 @@ export default function Header() {
                   </div>
                 )}
               </div>
-
-              <div className="relative">
-                <button
-                  type="button"
-                  aria-label="Toggle citizen menu"
-                  aria-expanded={menuOpen}
-                  onClick={() => {
-                    setMenuOpen((value) => !value)
-                    setNotificationOpen(false)
-                  }}
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#003915] bg-[#00441b] px-4 text-sm font-black text-white shadow-[0_3px_0_#003915,0_10px_22px_rgba(0,38,15,0.18)] transition hover:bg-[#083f1d] active:translate-y-[2px] active:shadow-[0_1px_0_#003915,0_6px_14px_rgba(0,38,15,0.16)]"
-                >
-                  <span className="hidden sm:inline">Menu</span>
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    {menuOpen ? (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    ) : (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    )}
-                  </svg>
-                </button>
-
-                {menuOpen && (
-                  <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-52 rounded-2xl border border-white/15 bg-[#25765b] p-2 text-white shadow-2xl ring-1 ring-black/10">
-                    <div className="grid gap-1">
-                      <Link to="/submit" className="rounded-xl px-4 py-3 text-sm font-semibold transition hover:bg-white/10">
-                        Submit Report
-                      </Link>
-                      <Link to="/myreports" className="rounded-xl px-4 py-3 text-sm font-semibold transition hover:bg-white/10">
-                        My Report
-                      </Link>
-                      <Link to="/editprofile" className="rounded-xl px-4 py-3 text-sm font-semibold transition hover:bg-white/10">
-                        Edit Profile
-                      </Link>
-                      <button type="button" onClick={handleLogout} className="rounded-xl px-4 py-3 text-left text-sm font-semibold text-red-100 transition hover:bg-white/10">
-                        Logout
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+            ) : null}
+          </div>
         </div>
+      </header>
+
+      <aside className="fixed inset-y-0 left-0 z-40 flex w-20 flex-col bg-[#123629] text-white shadow-xl md:w-64">
+      <div className="px-3 py-5 md:px-5 md:py-6">
+        <Link
+          to={isAuthenticated ? '/home' : '/'}
+          aria-label={isAuthenticated ? 'Go to citizen dashboard' : 'Go to landing page'}
+          className="flex items-center justify-center gap-3 md:justify-start"
+        >
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-white/30 md:h-14 md:w-14">
+            <img src="/ecowatch-logo.svg" alt="EcoWatch logo" className="h-10 w-10 rounded-full object-contain md:h-12 md:w-12" />
+          </span>
+          <span className="hidden min-w-0 md:block">
+            <span className="block truncate text-xl font-black">EcoWatch</span>
+            <span className="block truncate text-sm font-semibold text-emerald-50/85">
+              {user?.name ? `Hi, ${toDisplayText(user.name)}` : 'Citizen Portal'}
+            </span>
+          </span>
+        </Link>
       </div>
-    </header>
+
+      <div className="mx-3 border-t border-white/15 md:mx-5" />
+
+      <nav className="grid gap-2 px-3 py-5 md:px-4">
+        {!isAuthenticated ? (
+          <SidebarLink to="/login" icon="login">
+            Sign In
+          </SidebarLink>
+        ) : (
+          <>
+            <SidebarLink to="/home" icon="dashboard">
+              Dashboard
+            </SidebarLink>
+            <SidebarLink to="/submit" icon="report">
+              Submit Report
+            </SidebarLink>
+            <SidebarLink to="/myreports" icon="list">
+              My Report
+            </SidebarLink>
+            <SidebarLink to="/editprofile" icon="profile">
+              Edit Profile
+            </SidebarLink>
+          </>
+        )}
+      </nav>
+
+      {isAuthenticated ? (
+        <div className="mt-auto p-3 md:p-4">
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Logout"
+            className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-red-200/20 bg-red-500/10 px-3 text-left text-sm font-black text-red-100 transition hover:bg-red-500/15 md:justify-start md:px-4"
+          >
+            <SidebarIcon name="logout" />
+            <span className="hidden md:inline">Logout</span>
+          </button>
+        </div>
+      ) : null}
+      </aside>
+    </>
   )
 }

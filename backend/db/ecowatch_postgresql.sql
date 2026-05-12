@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   phone VARCHAR(20) UNIQUE,
   password_hash TEXT NOT NULL,
+  name TEXT,
   full_name TEXT,
+  role TEXT DEFAULT 'citizen',
   email VARCHAR(100) UNIQUE,
   is_active BOOLEAN DEFAULT TRUE,
   last_login TIMESTAMPTZ,
@@ -22,13 +24,17 @@ CREATE TABLE IF NOT EXISTS users (
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'citizen';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(100);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE users ALTER COLUMN phone DROP NOT NULL;
+UPDATE users SET name = full_name WHERE name IS NULL AND full_name IS NOT NULL;
+UPDATE users SET role = 'citizen' WHERE role IS NULL;
 
 CREATE TABLE IF NOT EXISTS admin_users (
   id SERIAL PRIMARY KEY,
@@ -204,6 +210,40 @@ INSERT INTO system_settings (setting_key, setting_value, description) VALUES
   ('max_media_per_report', '5', 'Maximum media files per report'),
   ('allowed_media_types', 'image/jpeg,image/png,video/mp4', 'Allowed media MIME types')
 ON CONFLICT (setting_key) DO NOTHING;
+
+INSERT INTO admin_users (email, password_hash, name, role, is_active, created_at, updated_at)
+VALUES (
+  'admin@gmail.com',
+  '$2a$10$lcZzDzLE8EvzwDyOP1Umq.q.4TbLbB00gzFBQbkIQ6a.ZUcv7Te0G',
+  'DENR Admin',
+  'admin',
+  TRUE,
+  NOW(),
+  NOW()
+)
+ON CONFLICT (email) DO UPDATE
+SET password_hash = EXCLUDED.password_hash,
+    name = EXCLUDED.name,
+    role = EXCLUDED.role,
+    is_active = TRUE,
+    updated_at = NOW();
+
+INSERT INTO admin_users (email, password_hash, name, role, is_active, created_at, updated_at)
+VALUES (
+  'admin@admin.com',
+  '$2a$10$lcZzDzLE8EvzwDyOP1Umq.q.4TbLbB00gzFBQbkIQ6a.ZUcv7Te0G',
+  'DENR Admin',
+  'admin',
+  TRUE,
+  NOW(),
+  NOW()
+)
+ON CONFLICT (email) DO UPDATE
+SET password_hash = EXCLUDED.password_hash,
+    name = EXCLUDED.name,
+    role = EXCLUDED.role,
+    is_active = TRUE,
+    updated_at = NOW();
 
 COMMIT;
 

@@ -117,7 +117,7 @@ export default function Auth() {
 }
         <div className="flex flex-col items-center text-center mb-6">
           <div className="h-12 w-12 rounded-full bg-gradient-to-r from-green-500 to-blue-600 flex items-center justify-center text-white font-bold">D</div>
-          <h1 className="mt-4 text-2xl font-semibold">DENR CENRO Citizen Portal</h1>
+          <h1 className="mt-4 text-2xl font-semibold">Citizen Portal</h1>
           <p className="mt-1 text-sm text-gray-500">Sign in to submit environmental reports</p>
         </div>
 

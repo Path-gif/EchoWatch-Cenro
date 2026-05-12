@@ -19,6 +19,14 @@ function Icon({ name }) {
         <path d="M9 17h4" />
       </>
     ),
+    users: (
+      <>
+        <path d="M16 11a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z" />
+        <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+        <path d="M18.5 8.5a3 3 0 0 1 0 5" />
+        <path d="M21.5 20a5.5 5.5 0 0 0-3-4.6" />
+      </>
+    ),
     logout: <path d="M14 7l5 5-5 5M19 12H9M11 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h5" />,
   }
 
@@ -32,6 +40,7 @@ function Icon({ name }) {
 const navItems = [
   { label: 'Dashboard', to: '/admin/dashboard', icon: 'dashboard' },
   { label: 'Reports', to: '/admin/reports', icon: 'reports' },
+  { label: 'Registered Users', to: '/admin/users', icon: 'users' },
 ]
 
 export default function AdminLayout() {
@@ -40,20 +49,20 @@ export default function AdminLayout() {
   function handleSignOut() {
     localStorage.removeItem('admin_token')
     localStorage.removeItem('admin_user')
-    navigate('/admin/login')
+    navigate('/')
   }
 
   return (
-    <div className="min-h-screen bg-[#edf1ef] text-[#17261f] lg:grid lg:grid-cols-[17rem_1fr]">
-      <aside className="sticky top-0 z-40 border-b border-[#0d2d23]/15 bg-[#123629] text-white shadow-lg lg:h-screen lg:border-b-0 lg:border-r lg:border-white/10">
+    <div className="min-h-screen bg-[#edf1ef] text-[#17261f] lg:grid lg:grid-cols-[19rem_1fr] lg:items-stretch">
+      <aside className="sticky top-0 z-40 border-b border-[#0d2d23]/15 bg-[#123629] text-white shadow-lg lg:static lg:flex lg:min-h-screen lg:flex-col lg:self-stretch lg:overflow-visible lg:border-b-0 lg:border-r lg:border-white/10">
         <div className="flex min-h-[76px] items-center justify-between gap-3 px-4 py-3 lg:min-h-0 lg:flex-col lg:items-stretch lg:px-5 lg:py-6">
           <Link to="/" aria-label="Go to landing page" className="flex min-w-0 items-center gap-3">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-white/25">
               <img src="/ecowatch-logo.svg" alt="EcoWatch logo" className="h-11 w-11 rounded-full object-contain" />
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-[11px] font-semibold uppercase tracking-[0.22em] text-[#d9c273]">DENR Cenro</span>
-              <span className="block truncate text-xl font-black">Admin Portal</span>
+              <span className="block truncate text-xl font-black">EcoWatch</span>
+              <span className="block truncate text-sm font-semibold text-emerald-50/85">Admin Portal</span>
             </span>
           </Link>
 

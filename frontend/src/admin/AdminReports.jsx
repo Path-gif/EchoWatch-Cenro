@@ -19,6 +19,14 @@ const MUNICIPALITIES = [
   { name: 'Cabangan', latitude: 15.1673, longitude: 120.0334 },
 ]
 
+const REPORTED_CASES = [
+  'Illegal Cutting (Section 77)',
+  'Illegal Occupation (Section 78)',
+  'Chainsaw Act (RA 9175)',
+  'Mining Act (RA 9275)',
+  'Wildlife (RA 9147)',
+]
+
 function getReportCountColor(count) {
   if (count >= 20) return '#dc2626'
   if (count >= 10) return '#d6b44c'
@@ -60,6 +68,35 @@ function formatTimestamp(value) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
+}
+
+function getLocalDateKey(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getStartOfWeek(value) {
+  const date = new Date(value)
+  const day = date.getDay()
+  const daysSinceMonday = day === 0 ? 6 : day - 1
+  date.setHours(0, 0, 0, 0)
+  date.setDate(date.getDate() - daysSinceMonday)
+  return date
+}
+
+function escapeExcelCell(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 function normalizeMediaUrl(url) {
@@ -129,9 +166,14 @@ export default function AdminReports() {
   const [selectedReportId, setSelectedReportId] = useState(null)
   const [municipalityFilter, setMunicipalityFilter] = useState('all')
   const [caseFilter, setCaseFilter] = useState('all')
+  const [dateFilter, setDateFilter] = useState('')
   const [referenceSearch, setReferenceSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState(null)
+  const [actionReport, setActionReport] = useState(null)
+  const [actionNotes, setActionNotes] = useState('')
+  const [savingAction, setSavingAction] = useState(false)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -165,10 +207,6 @@ export default function AdminReports() {
     }
   }, [])
 
-  const caseOptions = useMemo(() => {
-    return Array.from(new Set(overview.reports.map((report) => toDisplayText(report.violation_type)).filter(Boolean))).sort()
-  }, [overview.reports])
-
   const filteredReports = useMemo(() => {
     const query = referenceSearch.trim().toLowerCase()
 
@@ -176,13 +214,32 @@ export default function AdminReports() {
       const matchesMunicipality = municipalityFilter === 'all' || toDisplayText(report.municipality) === municipalityFilter
       const matchesCase = caseFilter === 'all' || toDisplayText(report.violation_type) === caseFilter
       const matchesReference = !query || toDisplayText(report.reference_number).toLowerCase().includes(query)
-      return matchesMunicipality && matchesCase && matchesReference
+      const reportDate = report.created_at ? new Date(report.created_at).toISOString().slice(0, 10) : ''
+      const matchesDate = !dateFilter || reportDate === dateFilter
+      return matchesMunicipality && matchesCase && matchesReference && matchesDate
     })
-  }, [caseFilter, municipalityFilter, overview.reports, referenceSearch])
+  }, [caseFilter, dateFilter, municipalityFilter, overview.reports, referenceSearch])
 
   const selectedReport = useMemo(() => {
     return overview.reports.find((report) => report.id === selectedReportId) || null
   }, [overview.reports, selectedReportId])
+
+  const highestMunicipality = useMemo(() => {
+    return overview.municipality_counts.reduce((highest, item) => {
+      const count = Number(item.count) || 0
+      if (!highest || count > highest.count) {
+        return { municipality: item.municipality, count }
+      }
+      return highest
+    }, null)
+  }, [overview.municipality_counts])
+
+  const highestAreaReports = useMemo(() => {
+    if (!highestMunicipality?.municipality || highestMunicipality.count === 0) return []
+    return overview.reports
+      .filter((report) => toDisplayText(report.municipality) === highestMunicipality.municipality)
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+  }, [highestMunicipality, overview.reports])
 
   useEffect(() => {
     if (selectedReportId && !overview.reports.some((report) => report.id === selectedReportId)) {
@@ -190,29 +247,52 @@ export default function AdminReports() {
     }
   }, [overview.reports, selectedReportId])
 
-  async function handleMarkReportDone(reportId) {
+  function openActionEditor(report) {
+    setActionReport(report)
+    setActionNotes(report.resolution_notes || '')
+  }
+
+  function closeActionEditor() {
+    setActionReport(null)
+    setActionNotes('')
+    setSavingAction(false)
+  }
+
+  async function handleSaveReportAction() {
+    if (!actionReport) return
+    const notes = actionNotes.trim()
+    if (!notes) {
+      setMessage('DENR action description is required before marking the report as acted.')
+      return
+    }
+
+    setSavingAction(true)
     try {
-      const response = await api.patch(`/admin/reports/${reportId}/status`, {
-        status: 'resolved',
-        notes: 'Reported activity has been completed by DENR review.',
+      const response = await api.patch(`/admin/reports/${actionReport.id}/status`, {
+        status: 'acted',
+        notes,
       })
       const updatedReport = response.data?.report
       setOverview((prev) => ({
         ...prev,
         reports: prev.reports.map((report) =>
-          report.id === reportId
+          report.id === actionReport.id
             ? {
                 ...report,
-                status: updatedReport?.status || 'resolved',
+                status: updatedReport?.status || 'acted',
                 resolution_date: updatedReport?.resolution_date || new Date().toISOString(),
-                resolution_notes: updatedReport?.resolution_notes || 'Reported activity has been completed by DENR review.',
+                resolution_notes: updatedReport?.resolution_notes || notes,
+                updated_at: updatedReport?.updated_at || new Date().toISOString(),
               }
             : report
         ),
       }))
-      setMessage('Report marked done. The citizen will see a notification.')
+      setMessage('DENR action saved. Report is marked as acted and the citizen will see a notification.')
+      closeActionEditor()
     } catch (error) {
-      setMessage(toDisplayText(error?.response?.data?.error, 'Failed to mark report done.'))
+      setMessage(toDisplayText(error?.response?.data?.error, 'Failed to save DENR action.'))
+    } finally {
+      setSavingAction(false)
     }
   }
 
@@ -230,6 +310,108 @@ export default function AdminReports() {
     } catch (error) {
       setMessage(toDisplayText(error?.response?.data?.error, 'Failed to delete report.'))
     }
+  }
+
+  function getReportsForExport(period) {
+    const now = new Date()
+    const start = period === 'month'
+      ? new Date(now.getFullYear(), now.getMonth(), 1)
+      : getStartOfWeek(now)
+    const query = referenceSearch.trim().toLowerCase()
+
+    return overview.reports.filter((report) => {
+      const submittedAt = report.created_at ? new Date(report.created_at) : null
+      if (!submittedAt || Number.isNaN(submittedAt.getTime())) return false
+
+      const matchesPeriod = submittedAt >= start && submittedAt <= now
+      const matchesMunicipality = municipalityFilter === 'all' || toDisplayText(report.municipality) === municipalityFilter
+      const matchesCase = caseFilter === 'all' || toDisplayText(report.violation_type) === caseFilter
+      const matchesReference = !query || toDisplayText(report.reference_number).toLowerCase().includes(query)
+      return matchesPeriod && matchesMunicipality && matchesCase && matchesReference
+    })
+  }
+
+  function downloadExcel(period) {
+    const rows = getReportsForExport(period)
+    const periodLabel = period === 'month' ? 'This Month' : 'This Week'
+
+    if (rows.length === 0) {
+      setMessage(`No reports found for ${periodLabel.toLowerCase()} export.`)
+      return
+    }
+
+    const headers = [
+      'Reference Code',
+      'Reported Case',
+      'Municipality',
+      'Submitter',
+      'Phone',
+      'Submitted Date and Time',
+      'Status',
+      'DENR Action Description',
+      'Acted Date and Time',
+      'Location',
+      'Latitude',
+      'Longitude',
+      'Citizen Description',
+    ]
+
+    const bodyRows = rows.map((report) => [
+      toDisplayText(report.reference_number, ''),
+      toDisplayText(report.violation_type, ''),
+      toDisplayText(report.municipality, ''),
+      toDisplayText(report.submitter_name, ''),
+      toDisplayText(report.phone, ''),
+      report.created_at ? formatTimestamp(report.created_at) : '',
+      String(report.status || 'submitted').replaceAll('_', ' '),
+      toDisplayText(report.resolution_notes, ''),
+      report.resolution_date ? formatTimestamp(report.resolution_date) : '',
+      toDisplayText(report.manual_location, ''),
+      report.latitude ?? '',
+      report.longitude ?? '',
+      toDisplayText(report.description, ''),
+    ])
+
+    const tableHead = headers.map((header) => `<th>${escapeExcelCell(header)}</th>`).join('')
+    const tableBody = bodyRows
+      .map((row) => `<tr>${row.map((cell) => `<td>${escapeExcelCell(cell)}</td>`).join('')}</tr>`)
+      .join('')
+    const generatedAt = formatTimestamp(new Date().toISOString())
+    const title = `EcoWatch Reports - ${periodLabel}`
+    const html = `<!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <style>
+            body { font-family: Arial, sans-serif; }
+            h1 { color: #123629; }
+            table { border-collapse: collapse; width: 100%; }
+            th { background: #0f5f46; color: #ffffff; }
+            th, td { border: 1px solid #cfd8d3; padding: 8px; mso-number-format: "\\@"; vertical-align: top; }
+          </style>
+        </head>
+        <body>
+          <h1>${escapeExcelCell(title)}</h1>
+          <p>Generated: ${escapeExcelCell(generatedAt)}</p>
+          <p>Total reports: ${rows.length}</p>
+          <table>
+            <thead><tr>${tableHead}</tr></thead>
+            <tbody>${tableBody}</tbody>
+          </table>
+        </body>
+      </html>`
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `ecowatch-reports-${period}-${getLocalDateKey(new Date())}.xls`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    setExportMenuOpen(false)
+    setMessage(`Exported ${rows.length} report${rows.length === 1 ? '' : 's'} for ${periodLabel.toLowerCase()}.`)
   }
 
   return (
@@ -276,9 +458,15 @@ export default function AdminReports() {
 
         <div className="rounded-[1.25rem] border border-[#d6dfd9] bg-white p-4 shadow-sm sm:rounded-[1.7rem] sm:p-6">
           <div className="border-b border-[#e5ece8] pb-4">
-            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46]">Case Details</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46]">
+              {selectedReport ? 'Case Details' : 'Highest Reported Area'}
+            </p>
             <h3 className="mt-2 break-words text-xl font-black text-[#123629] sm:text-2xl">
-              {selectedReport ? toDisplayText(selectedReport.reference_number, 'No reference number') : 'Select a case'}
+              {selectedReport
+                ? toDisplayText(selectedReport.reference_number, 'No reference number')
+                : highestMunicipality?.count
+                  ? `${highestMunicipality.municipality} (${highestMunicipality.count})`
+                  : 'No reported area yet'}
             </h3>
           </div>
 
@@ -307,10 +495,60 @@ export default function AdminReports() {
               <DetailField label="Location Source">{toDisplayText(selectedReport.manual_location, 'Coordinate-only report')}</DetailField>
               <DetailField label="Description">{toDisplayText(selectedReport.description, 'Not available')}</DetailField>
               <DetailField label="Timestamp">{formatTimestamp(selectedReport.created_at)}</DetailField>
+              <DetailField label="DENR Action Status">{String(selectedReport.status || 'submitted').replaceAll('_', ' ')}</DetailField>
+              <DetailField label="DENR Action Description">{toDisplayText(selectedReport.resolution_notes, 'No DENR action recorded yet.')}</DetailField>
+              <DetailField label="Acted Date and Time">{selectedReport.resolution_date ? formatTimestamp(selectedReport.resolution_date) : 'Not acted yet'}</DetailField>
             </div>
           ) : (
-            <div className="mt-5 rounded-[1.05rem] border border-dashed border-[#ccd7d1] bg-[#f8fbf9] px-4 py-8 text-sm text-slate-500">
-              Click View Details on a reported case to see the full case information here.
+            <div className="mt-4 space-y-3">
+              {highestAreaReports.length === 0 ? (
+                <div className="rounded-[1.05rem] border border-dashed border-[#ccd7d1] bg-[#f8fbf9] px-4 py-8 text-sm text-slate-500">
+                  No reports have been submitted yet.
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-[1.05rem] border border-[#dbe4df] bg-[#f8fbf9] px-4 py-4">
+                    <p className="text-sm font-semibold text-slate-700">
+                      This area currently has the highest number of reported cases.
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Click View Details on a case below to show the full information here.
+                    </p>
+                  </div>
+
+                  <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+                    {highestAreaReports.map((report) => (
+                      <article key={report.id} className="rounded-[1.05rem] border border-[#dbe4df] bg-white p-4 shadow-sm">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <p className="break-words text-base font-black text-[#123629]">{toDisplayText(report.reference_number, 'No reference number')}</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-700">{toDisplayText(report.violation_type, 'Untitled report')}</p>
+                            <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-[#0f5f46]">{formatTimestamp(report.created_at)}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedReportId(report.id)}
+                            className="min-h-10 rounded-full border border-[#003915] bg-[#00441b] px-4 text-sm font-black text-white"
+                          >
+                            View Details
+                          </button>
+                        </div>
+                        <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                          <div className="rounded-xl border border-[#e5ece8] bg-[#f8fbf9] px-3 py-2">
+                            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Submitter</p>
+                            <p className="mt-1 font-semibold text-slate-700">{toDisplayText(report.submitter_name, 'Unknown submitter')}</p>
+                          </div>
+                          <div className="rounded-xl border border-[#e5ece8] bg-[#f8fbf9] px-3 py-2">
+                            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Status</p>
+                            <p className="mt-1 font-semibold capitalize text-slate-700">{String(report.status || 'submitted').replaceAll('_', ' ')}</p>
+                          </div>
+                        </div>
+                        <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{toDisplayText(report.description, 'Not available')}</p>
+                      </article>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -321,7 +559,7 @@ export default function AdminReports() {
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46]">Reports Table</p>
           <h3 className="mt-2 text-xl font-black text-[#123629] sm:text-2xl">Municipality Report Entries</h3>
 
-          <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_13rem_16rem_auto]">
+          <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_13rem_16rem_12rem_auto]">
             <label className="grid gap-2">
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Search reference code</span>
               <input
@@ -353,8 +591,17 @@ export default function AdminReports() {
                 className="min-h-12 rounded-xl border border-[#cfd8d3] bg-white px-4 text-sm font-semibold text-slate-800 outline-none focus:border-[#0f5f46] focus:ring-2 focus:ring-[#0f5f46]/15"
               >
                 <option value="all">All cases</option>
-                {caseOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+                {REPORTED_CASES.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Date</span>
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(event) => setDateFilter(event.target.value)}
+                className="min-h-12 rounded-xl border border-[#cfd8d3] bg-white px-4 text-sm font-semibold text-slate-800 outline-none focus:border-[#0f5f46] focus:ring-2 focus:ring-[#0f5f46]/15"
+              />
             </label>
             <button
               type="button"
@@ -362,11 +609,67 @@ export default function AdminReports() {
                 setReferenceSearch('')
                 setMunicipalityFilter('all')
                 setCaseFilter('all')
+                setDateFilter('')
               }}
               className="min-h-12 self-end rounded-xl border border-[#cfd8d3] bg-white px-5 text-sm font-black text-[#1a5e20] shadow-[0_2px_0_#cfd8d3]"
             >
               Clear
             </button>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#e1e9e5] bg-gradient-to-r from-[#f8fbf9] to-white p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#0f5f46]">Export to Excel</p>
+              <p className="mt-1 text-sm text-slate-600">Exports use the current reference, municipality, and case filters.</p>
+            </div>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setExportMenuOpen((open) => !open)}
+                aria-expanded={exportMenuOpen}
+                className="inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-full border border-[#003915] bg-[#00441b] px-5 text-sm font-black text-white shadow-[0_3px_0_#003915] transition hover:-translate-y-0.5 hover:bg-[#0a5a28] hover:shadow-[0_5px_0_#003915] sm:w-auto"
+              >
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-white text-[#00441b]">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z" />
+                    <path d="M14 2v5h5" />
+                    <path d="M12 11v6" />
+                    <path d="m9 14 3 3 3-3" />
+                  </svg>
+                </span>
+                Export Reports
+                <svg viewBox="0 0 24 24" aria-hidden="true" className={`h-4 w-4 transition ${exportMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+
+              {exportMenuOpen ? (
+                <div className="absolute right-0 z-20 mt-2 w-full min-w-64 overflow-hidden rounded-2xl border border-[#cfd8d3] bg-white p-2 shadow-xl sm:w-72">
+                  <button
+                    type="button"
+                    onClick={() => downloadExcel('week')}
+                    className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl px-4 text-left text-sm font-black text-[#123629] transition hover:bg-[#f0f6f2]"
+                  >
+                    <span>
+                      <span className="block">This Week</span>
+                      <span className="block text-xs font-semibold text-slate-500">Monday to today</span>
+                    </span>
+                    <span className="rounded-full bg-[#eaf4ee] px-2 py-1 text-xs text-[#0f5f46]">XLS</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadExcel('month')}
+                    className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl px-4 text-left text-sm font-black text-[#123629] transition hover:bg-[#f0f6f2]"
+                  >
+                    <span>
+                      <span className="block">This Month</span>
+                      <span className="block text-xs font-semibold text-slate-500">Month start to today</span>
+                    </span>
+                    <span className="rounded-full bg-[#eaf4ee] px-2 py-1 text-xs text-[#0f5f46]">XLS</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -378,14 +681,20 @@ export default function AdminReports() {
           ) : (
             filteredReports.map((report) => (
               <article key={report.id} className="rounded-[1.05rem] border border-[#dbe4df] bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="break-words text-base font-black text-[#123629]">{toDisplayText(report.reference_number, 'No reference number')}</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-700">{toDisplayText(report.municipality, 'Unknown municipality')}</p>
-                  </div>
-                  <button type="button" onClick={() => setSelectedReportId(report.id)} className="rounded-full border border-[#003915] bg-[#00441b] px-4 py-2 text-sm font-black text-white">
-                    View Details
+                <div className="min-w-0">
+                  <p className="break-words text-base font-black text-[#123629]">{toDisplayText(report.reference_number, 'No reference number')}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-700">{toDisplayText(report.municipality, 'Unknown municipality')}</p>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => openActionEditor(report)} className="min-h-11 rounded-full border border-[#cfd8d3] bg-white px-3 text-sm font-black text-[#1a5e20]">
+                    Edit
                   </button>
+                  <button type="button" onClick={() => handleDeleteReport(report.id)} className="min-h-11 rounded-full border border-red-200 bg-red-50 px-3 text-sm font-black text-red-700">
+                    Delete
+                  </button>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+                  <span>{formatTimestamp(report.created_at)}</span>
                 </div>
                 <p className="mt-3 text-sm font-semibold text-slate-700">{toDisplayText(report.violation_type, 'Untitled report')}</p>
                 <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{toDisplayText(report.description, 'Not available')}</p>
@@ -424,11 +733,8 @@ export default function AdminReports() {
                     <td className="px-6 py-4 text-sm text-slate-700">{formatTimestamp(report.created_at)}</td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => setSelectedReportId(report.id)} className="rounded-full border border-[#003915] bg-[#00441b] px-4 py-2 text-sm font-black text-white">
-                          View Details
-                        </button>
-                        <button type="button" disabled={report.status === 'resolved'} onClick={() => handleMarkReportDone(report.id)} className="rounded-full border border-[#cfd8d3] bg-white px-4 py-2 text-sm font-black text-[#1a5e20] disabled:cursor-not-allowed disabled:text-slate-400">
-                          Mark Done
+                        <button type="button" onClick={() => openActionEditor(report)} className="rounded-full border border-[#cfd8d3] bg-white px-4 py-2 text-sm font-black text-[#1a5e20]">
+                          Edit Action
                         </button>
                         <button type="button" onClick={() => handleDeleteReport(report.id)} className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-black text-red-700">
                           Delete
@@ -442,6 +748,58 @@ export default function AdminReports() {
           </table>
         </div>
       </section>
+
+      {actionReport ? (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#001d12]/70 px-3 py-6">
+          <div className="w-full max-w-2xl overflow-hidden rounded-[1.4rem] rounded-tr-none border border-[#d7e0da] bg-white shadow-2xl">
+            <div className="border-b border-[#e5ece8] bg-[#f7faf8] px-5 py-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0f5f46]">DENR Action</p>
+              <h3 className="mt-1 text-2xl font-black text-[#123629]">Edit Report Action</h3>
+              <p className="mt-2 text-sm font-semibold text-slate-600">{toDisplayText(actionReport.reference_number, 'No reference number')}</p>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              <div className="rounded-2xl border border-[#dbe4df] bg-[#f8fbf9] px-4 py-3">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0f5f46]">Current status</p>
+                <p className="mt-1 text-sm font-semibold text-slate-700">{String(actionReport.status || 'submitted').replaceAll('_', ' ')}</p>
+              </div>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-black text-[#123629]">DENR description / action taken</span>
+                <textarea
+                  value={actionNotes}
+                  onChange={(event) => setActionNotes(event.target.value)}
+                  rows={5}
+                  placeholder="Example: DENR personnel validated the report, coordinated with the area office, and acted on the concern."
+                  className="min-h-32 rounded-2xl border border-[#cfd8d3] bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none focus:border-[#0f5f46] focus:ring-2 focus:ring-[#0f5f46]/15"
+                />
+              </label>
+
+              <div className="rounded-2xl border border-[#cfe0d7] bg-[#f4faf7] px-4 py-3 text-sm font-semibold text-[#123629]">
+                When saved, this report will be marked as acted. Date and time are recorded automatically by the system.
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-[#e5ece8] px-5 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeActionEditor}
+                className="min-h-12 rounded-full border border-[#cfd8d3] bg-white px-5 text-sm font-black text-[#1a5e20] shadow-[0_2px_0_#cfd8d3]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={savingAction}
+                onClick={handleSaveReportAction}
+                className="min-h-12 rounded-full border border-[#003915] bg-[#00441b] px-5 text-sm font-black text-white shadow-[0_3px_0_#003915] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {savingAction ? 'Saving...' : 'Mark as Acted'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

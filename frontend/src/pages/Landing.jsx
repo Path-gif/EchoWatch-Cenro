@@ -161,36 +161,22 @@ export default function Landing() {
       className="min-h-screen overflow-x-hidden bg-[#f7f9f6] text-[#212529]"
       style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}
     >
-      <div className="border-b border-[#d5d5d5] bg-[#f5f5f5]">
-        <div className="mx-auto flex min-h-10 max-w-7xl items-center justify-between gap-3 px-3 py-2 text-xs sm:px-6 lg:px-8">
-          <a href="https://www.gov.ph/" className="font-bold uppercase tracking-[0.18em] text-[#3f3f3f]">
-            GOVPH
-          </a>
-          <a href="#connect" className="font-semibold text-[#4f4f4f]">
-            Contact Us
-          </a>
-        </div>
-      </div>
-
       <header className="bg-[#0f5f46] text-white shadow-lg">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-3 py-4 sm:px-6 lg:px-8">
+        <div className="flex w-full flex-col gap-4 px-4 py-7 sm:px-8 lg:px-12">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex min-w-0 items-start gap-3 sm:items-center">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-white/30 sm:h-16 sm:w-16">
                 <img src="/ecowatch-logo.svg" alt="EcoWatch logo" className="h-11 w-11 rounded-full object-contain sm:h-14 sm:w-14" />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#e5c76b] sm:text-xs sm:tracking-[0.22em]">Republic of the Philippines</p>
-                <h1 className="mt-1 text-xl font-extrabold leading-tight sm:text-3xl">DENR Region 3</h1>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#e5c76b] sm:text-xs sm:tracking-[0.22em]"></p>
+                <h1 className="mt-1 text-xl font-extrabold leading-tight sm:text-3xl">EcoWatch</h1>
                 <p className="mt-1 text-xs font-medium leading-5 text-emerald-50/90 sm:text-sm">Department of Environment and Natural Resources - Central Luzon</p>
               </div>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Link to="/login" className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-white/35 bg-white px-5 text-sm font-bold text-[#00441b] sm:w-auto">
-                Citizen Login
-              </Link>
-              <Link to="/admin-login" className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-white/35 bg-white/10 px-5 text-sm font-bold text-white sm:w-auto">
-                Admin Login
+            <div className="flex flex-col gap-2 sm:flex-row md:ml-auto">
+              <Link to="/login" className="inline-flex min-h-14 w-full items-center justify-center rounded-full border border-white/35 bg-white px-7 text-base font-bold text-[#00441b] sm:w-auto">
+                Sign In
               </Link>
             </div>
           </div>
@@ -316,7 +302,7 @@ export default function Landing() {
                 <a href="https://www.gov.ph/" target="_blank" rel="noreferrer">GOV.PH</a>
                 <a href="https://data.gov.ph/" target="_blank" rel="noreferrer">Open Data Portal</a>
                 <a href="https://www.officialgazette.gov.ph/" target="_blank" rel="noreferrer">Official Gazette</a>
-                <a href="https://r3.denr.gov.ph/" target="_blank" rel="noreferrer">DENR Region 3</a>
+                <a href="https://r3.denr.gov.ph/" target="_blank" rel="noreferrer">EcoWatch</a>
               </div>
 
               <h2 className="mt-8 text-xs font-bold uppercase tracking-[0.08em] text-[#111827]">Official Channels</h2>

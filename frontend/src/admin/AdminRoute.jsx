@@ -6,7 +6,7 @@ export default function AdminRoute() {
   const token = localStorage.getItem('admin_token')
 
   if (!token) {
-    return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />
+    return <Navigate to="/admin-login" replace state={{ from: location.pathname }} />
   }
 
   return <Outlet />

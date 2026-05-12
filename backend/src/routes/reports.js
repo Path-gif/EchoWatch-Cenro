@@ -21,6 +21,13 @@ const MUNICIPALITIES = [
   { name: 'Cabangan', code: 'CAB', latitude: 15.1673, longitude: 120.0334 },
 ];
 
+const COVERAGE_BOUNDS = {
+  minLatitude: 14.75,
+  maxLatitude: 15.24,
+  minLongitude: 119.98,
+  maxLongitude: 120.36,
+};
+
 function toNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -41,6 +48,19 @@ function getDistanceKm(latitudeA, longitudeA, latitudeB, longitudeB) {
       Math.sin(deltaLongitude / 2) *
       Math.sin(deltaLongitude / 2);
   return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function isInsideCoverage(latitude, longitude) {
+  const numericLatitude = toNumber(latitude);
+  const numericLongitude = toNumber(longitude);
+  if (numericLatitude === null || numericLongitude === null) return false;
+
+  return (
+    numericLatitude >= COVERAGE_BOUNDS.minLatitude &&
+    numericLatitude <= COVERAGE_BOUNDS.maxLatitude &&
+    numericLongitude >= COVERAGE_BOUNDS.minLongitude &&
+    numericLongitude <= COVERAGE_BOUNDS.maxLongitude
+  );
 }
 
 function deriveMunicipality(latitude, longitude) {
@@ -199,6 +219,14 @@ router.post('/', requireUser, uploadEvidence, async (req, res) => {
 
   if (!hasCoordinates && !manualLocation) {
     return res.status(400).json({ error: 'Location is required' });
+  }
+
+  if (!hasCoordinates) {
+    return res.status(400).json({ error: 'Pin a report location inside Olongapo, Subic, San Marcelino, San Antonio, San Narciso, San Felipe, or Cabangan.' });
+  }
+
+  if (!isInsideCoverage(latitude, longitude)) {
+    return res.status(400).json({ error: 'Report location must be inside Olongapo, Subic, San Marcelino, San Antonio, San Narciso, San Felipe, or Cabangan.' });
   }
 
   const client = await db.pool.connect();
@@ -392,7 +420,7 @@ router.get('/notifications', requireUser, async (req, res) => {
          LIMIT 1
        ) latest_activity ON true
        WHERE r.user_id = $1
-         AND LOWER(r.status) IN ('resolved', 'completed', 'done', 'closed')
+         AND LOWER(r.status) IN ('acted', 'resolved', 'completed', 'done', 'closed')
        ORDER BY COALESCE(r.resolution_date, latest_activity.created_at, r.updated_at, r.created_at) DESC`,
       [req.user.sub]
     );
@@ -401,7 +429,7 @@ router.get('/notifications', requireUser, async (req, res) => {
       id: `report-${row.id}-${row.status}`,
       report_id: row.id,
       reference_number: row.reference_number,
-      title: 'Report activity completed',
+      title: 'Report activity updated',
       message: `${row.reference_number} has been marked ${String(row.status || '').replaceAll('_', ' ')}.`,
       violation_type: row.violation_type,
       status: row.status,

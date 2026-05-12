@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import api from '../lib/api'
 import { normalizeUser, toDisplayText } from '../lib/text'
 
@@ -51,20 +51,7 @@ function Field({ label, children }) {
   )
 }
 
-function ReturnToDashboardButton({ onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#003915] bg-[#00441b] px-5 text-sm font-black text-white shadow-[0_3px_0_#003915] transition active:translate-y-[2px] active:shadow-[0_1px_0_#003915] sm:w-auto"
-    >
-      Return to Dashboard
-    </button>
-  )
-}
-
 export default function Profile() {
-  const navigate = useNavigate()
   const user = readUser()
   const [name, setName] = useState(user?.name || '')
   const [phone, setPhone] = useState(user?.phone || '')
@@ -95,7 +82,6 @@ export default function Profile() {
     return (
       <div className="min-h-[calc(100vh-88px)] bg-[#fcfdfc] px-3 py-4">
         <div className="mx-auto w-full max-w-md space-y-3">
-          <ReturnToDashboardButton onClick={() => navigate('/home')} />
           <div className="rounded-2xl rounded-tr-none border border-[#d7e0da] bg-white p-5 text-center shadow-[0_12px_28px_rgba(0,68,27,0.12)]">
             <h1 className="text-2xl font-black text-[#00441b]">Profile</h1>
             <p className="mt-2 text-sm text-[#495057]">Please sign in to view your account profile.</p>
@@ -117,8 +103,6 @@ export default function Profile() {
       style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}
     >
       <div className="mx-auto w-full max-w-3xl space-y-3">
-        <ReturnToDashboardButton onClick={() => navigate('/home')} />
-
         <section className="rounded-2xl rounded-tr-none border border-[#d7e0da] bg-white p-5 shadow-[0_12px_28px_rgba(0,68,27,0.1)]">
           <div className="flex items-start gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl rounded-br-none bg-[#00441b] text-white shadow-[0_6px_14px_rgba(0,68,27,0.22)]">

@@ -155,7 +155,7 @@ export default function AdminDashboard() {
         </div>
 
         <div className="rounded-[1.15rem] border border-[#d6dfd9] bg-white p-4 shadow-sm sm:rounded-[1.4rem] sm:p-5">
-          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Highest Municipality</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46] sm:text-xs sm:tracking-[0.18em]">Highest Reported Area</p>
           <p className="mt-2 text-2xl font-black text-slate-900 sm:mt-3 sm:text-3xl">{overview.top_municipality || 'No data yet'}</p>
           <p className="mt-2 text-sm text-slate-600">The municipality with the highest current report volume.</p>
         </div>

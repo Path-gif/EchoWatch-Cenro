@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import L from 'leaflet'
+import { CircleMarker, MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
 import api from '../lib/api'
 import { normalizeUser, toDisplayText } from '../lib/text'
 import DescriptionSuggestions from '../components/DescriptionSuggestions'
@@ -9,6 +12,49 @@ const inputClass =
 
 const invalidInputClass =
   'border-[#d56b5f] bg-[#fff8f7] focus:border-[#b33a2e] focus:ring-[#d56b5f]/20'
+
+const DEFAULT_MAP_CENTER = [14.8799, 120.2312]
+const COVERAGE_BOUNDS = [
+  [14.75, 119.98],
+  [15.24, 120.36],
+]
+const COVERAGE_MUNICIPALITIES = [
+  { name: 'Olongapo', latitude: 14.8386, longitude: 120.2842 },
+  { name: 'Subic', latitude: 14.8799, longitude: 120.2312 },
+  { name: 'San Marcelino', latitude: 14.9742, longitude: 120.1579 },
+  { name: 'San Antonio', latitude: 14.9471, longitude: 120.0897 },
+  { name: 'San Narciso', latitude: 15.0167, longitude: 120.0833 },
+  { name: 'San Felipe', latitude: 15.0622, longitude: 120.0708 },
+  { name: 'Cabangan', latitude: 15.1673, longitude: 120.0334 },
+]
+
+const pinIcon = L.divIcon({
+  className: '',
+  html: `
+    <div style="
+      width: 42px;
+      height: 42px;
+      border-radius: 9999px 9999px 9999px 0;
+      background: #00441b;
+      border: 4px solid #ffffff;
+      box-shadow: 0 12px 24px rgba(0, 68, 27, 0.28);
+      transform: rotate(-45deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    ">
+      <div style="
+        width: 12px;
+        height: 12px;
+        border-radius: 9999px;
+        background: #e5c76b;
+        transform: rotate(45deg);
+      "></div>
+    </div>
+  `,
+  iconSize: [42, 42],
+  iconAnchor: [21, 42],
+})
 
 function readUser() {
   try {
@@ -75,15 +121,77 @@ function SectionShell({ icon, title, children }) {
   )
 }
 
-function ReturnToDashboardButton({ onClick }) {
+function isInsideCoverage(latitude, longitude) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#003915] bg-[#00441b] px-5 text-sm font-black text-white shadow-[0_3px_0_#003915] transition active:translate-y-[2px] active:shadow-[0_1px_0_#003915] sm:w-auto"
-    >
-      Return to Dashboard
-    </button>
+    latitude >= COVERAGE_BOUNDS[0][0] &&
+    latitude <= COVERAGE_BOUNDS[1][0] &&
+    longitude >= COVERAGE_BOUNDS[0][1] &&
+    longitude <= COVERAGE_BOUNDS[1][1]
+  )
+}
+
+function LocationPicker({ latitude, longitude, onReject, onSelect }) {
+  const selectedPosition = latitude != null && longitude != null ? [latitude, longitude] : null
+
+  function selectIfAllowed(nextLatitude, nextLongitude) {
+    if (!isInsideCoverage(nextLatitude, nextLongitude)) {
+      onReject()
+      return
+    }
+    onSelect(nextLatitude, nextLongitude)
+  }
+
+  function MapClickHandler() {
+    useMapEvents({
+      click(event) {
+        selectIfAllowed(event.latlng.lat, event.latlng.lng)
+      },
+    })
+    return null
+  }
+
+  return (
+    <div className="mt-3 overflow-hidden rounded-2xl rounded-tr-none border border-[#cfd8d3] bg-white shadow-[0_8px_18px_rgba(0,68,27,0.08)]">
+      <div className="flex flex-col gap-1 border-b border-[#d7e0da] bg-[#f8f9fa] px-4 py-3">
+        <p className="text-sm font-black text-[#00441b]">Pin exact location</p>
+        <p className="text-xs font-semibold text-[#6c757d]">Tap within Olongapo, Subic, San Marcelino, San Antonio, San Narciso, San Felipe, or Cabangan.</p>
+      </div>
+      <MapContainer
+        center={selectedPosition || DEFAULT_MAP_CENTER}
+        zoom={selectedPosition ? 16 : 11}
+        maxBounds={COVERAGE_BOUNDS}
+        maxBoundsViscosity={1}
+        scrollWheelZoom
+        className="h-[280px] w-full"
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <MapClickHandler />
+        {COVERAGE_MUNICIPALITIES.map((municipality) => (
+          <CircleMarker
+            key={municipality.name}
+            center={[municipality.latitude, municipality.longitude]}
+            radius={7}
+            pathOptions={{ color: '#00441b', fillColor: '#e5c76b', fillOpacity: 0.95, weight: 2 }}
+          />
+        ))}
+        {selectedPosition ? (
+          <Marker
+            position={selectedPosition}
+            icon={pinIcon}
+            draggable
+            eventHandlers={{
+              dragend(event) {
+                const nextPosition = event.target.getLatLng()
+                selectIfAllowed(nextPosition.lat, nextPosition.lng)
+              },
+            }}
+          />
+        ) : null}
+      </MapContainer>
+    </div>
   )
 }
 
@@ -108,7 +216,7 @@ export default function SubmitReport() {
   const hasTitle = Boolean(formData.violationType)
   const hasDate = Boolean(formData.reportDate)
   const hasDescription = Boolean(formData.description.trim())
-  const hasLocation = Boolean(formData.manualLocation.trim()) || (formData.latitude != null && formData.longitude != null)
+  const hasLocation = formData.latitude != null && formData.longitude != null
   const hasIdentitySelection = formData.anonymous !== null
   const isFormValid = hasTitle && hasDate && hasDescription && hasLocation && hasIdentitySelection
 
@@ -131,7 +239,7 @@ export default function SubmitReport() {
     }
 
     if (!isFormValid) {
-      setMessage({ type: 'error', text: 'Complete all required fields before submitting the report.' })
+      setMessage({ type: 'error', text: 'Complete all required fields and pin a valid report location before submitting.' })
       return
     }
 
@@ -172,6 +280,14 @@ export default function SubmitReport() {
   const captureLocation = () => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        if (!isInsideCoverage(position.coords.latitude, position.coords.longitude)) {
+          setLocationMode('gps')
+          setMessage({
+            type: 'error',
+            text: 'Your GPS location is outside the supported area. Reports are limited to Olongapo, Subic, San Marcelino, San Antonio, San Narciso, San Felipe, and Cabangan.',
+          })
+          return
+        }
         setLocationMode('gps')
         setFormData((current) => ({
           ...current,
@@ -187,14 +303,35 @@ export default function SubmitReport() {
     )
   }
 
+  function handleManualPin(latitude, longitude) {
+    if (!isInsideCoverage(latitude, longitude)) {
+      setMessage({
+        type: 'error',
+        text: 'Pin must be inside Olongapo, Subic, San Marcelino, San Antonio, San Narciso, San Felipe, or Cabangan.',
+      })
+      return
+    }
+
+    const nextLatitude = Number(latitude.toFixed(8))
+    const nextLongitude = Number(longitude.toFixed(8))
+    setLocationMode('manual')
+    setFormData((current) => ({
+      ...current,
+      latitude: nextLatitude,
+      longitude: nextLongitude,
+      manualLocation:
+        current.manualLocation && !current.manualLocation.startsWith('Pinned location:')
+          ? current.manualLocation
+          : `Pinned location: ${nextLatitude.toFixed(6)}, ${nextLongitude.toFixed(6)}`,
+    }))
+  }
+
   return (
     <div
       className="min-h-[calc(100vh-88px)] bg-[#f8f9fa] px-3 py-4 text-[#212529]"
       style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}
     >
       <div className="mx-auto w-full max-w-5xl space-y-3">
-        <ReturnToDashboardButton onClick={() => navigate('/home')} />
-
         <section className="rounded-2xl rounded-tr-none border border-[#d7e0da] bg-[linear-gradient(135deg,#00441b_0%,#1a5e20_72%,#4c9a2a_100%)] p-5 text-white shadow-[0_12px_28px_rgba(0,68,27,0.18)]">
           <p className="inline-flex rounded-full border border-white/30 bg-white/10 px-4 py-1 text-xs font-black uppercase tracking-[0.16em]">
             Citizen Submission
@@ -276,7 +413,7 @@ export default function SubmitReport() {
                   type="button"
                   onClick={() => {
                     setLocationMode('manual')
-                    document.getElementById('manualLocation')?.focus()
+                    window.setTimeout(() => document.getElementById('manualLocation')?.focus(), 0)
                   }}
                   className="min-h-12 rounded-full border border-[#cfd8d3] bg-white px-4 text-sm font-black text-[#1a5e20] shadow-[0_3px_0_#cfd8d3] transition active:translate-y-[2px] active:shadow-[0_1px_0_#cfd8d3]"
                 >
@@ -284,27 +421,47 @@ export default function SubmitReport() {
                 </button>
               </div>
 
-              {formData.latitude && formData.longitude && (
+              {locationMode === 'gps' && formData.latitude && formData.longitude && (
                 <p className="mt-3 rounded-xl rounded-tr-none border border-[#b9d7b3] bg-[#eef6ea] px-4 py-3 text-sm font-semibold text-[#1a5e20]">
                   GPS Location: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
                 </p>
               )}
 
               {locationMode !== 'gps' ? (
-                <input
-                  id="manualLocation"
-                  type="text"
-                  placeholder="Sitio, barangay, or landmark"
-                  value={formData.manualLocation}
-                  onChange={(e) => {
-                    setLocationMode('manual')
-                    setFormData((current) => ({ ...current, manualLocation: e.target.value }))
-                  }}
-                  className={`mt-3 ${inputClass} ${fieldHasError(hasLocation) ? invalidInputClass : ''}`}
-                  aria-invalid={fieldHasError(hasLocation)}
-                />
+                <>
+                  <input
+                    id="manualLocation"
+                    type="text"
+                    placeholder="Sitio, barangay, or landmark"
+                    value={formData.manualLocation}
+                    onChange={(e) => {
+                      setLocationMode('manual')
+                      setFormData((current) => ({ ...current, manualLocation: e.target.value }))
+                    }}
+                    className={`mt-3 ${inputClass} ${fieldHasError(hasLocation) ? invalidInputClass : ''}`}
+                    aria-invalid={fieldHasError(hasLocation)}
+                  />
+
+                  <LocationPicker
+                    latitude={formData.latitude}
+                    longitude={formData.longitude}
+                    onReject={() =>
+                      setMessage({
+                        type: 'error',
+                        text: 'Pin must be inside Olongapo, Subic, San Marcelino, San Antonio, San Narciso, San Felipe, or Cabangan.',
+                      })
+                    }
+                    onSelect={handleManualPin}
+                  />
+
+                  {formData.latitude != null && formData.longitude != null ? (
+                    <p className="mt-3 rounded-xl rounded-tr-none border border-[#b9d7b3] bg-[#eef6ea] px-4 py-3 text-sm font-semibold text-[#1a5e20]">
+                      Selected pin: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                    </p>
+                  ) : null}
+                </>
               ) : null}
-              {fieldHasError(hasLocation) && <p className="mt-2 text-xs font-semibold text-[#b33a2e]">Location is required. Use GPS or enter a manual location.</p>}
+              {fieldHasError(hasLocation) && <p className="mt-2 text-xs font-semibold text-[#b33a2e]">Location is required. Use GPS or pin a location inside the supported area.</p>}
             </SectionShell>
 
             <SectionShell icon={<Icon type="media" />} title="Evidence">
@@ -433,7 +590,7 @@ export default function SubmitReport() {
                   aria-label="Show required fields"
                   onClick={() => {
                     setSubmitAttempted(true)
-                    setMessage({ type: 'error', text: 'Complete all required fields before submitting the report.' })
+                    setMessage({ type: 'error', text: 'Complete all required fields and pin a valid report location before submitting.' })
                   }}
                   className="absolute inset-0 rounded-full"
                 />

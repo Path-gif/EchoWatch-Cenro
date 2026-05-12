@@ -35,18 +35,6 @@ function StatTile({ label, value, tone = 'indigo' }) {
   )
 }
 
-function ReturnToDashboardButton({ onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#003915] bg-[#00441b] px-5 text-sm font-black text-white shadow-[0_3px_0_#003915] transition active:translate-y-[2px] active:shadow-[0_1px_0_#003915] sm:w-auto"
-    >
-      Return to Dashboard
-    </button>
-  )
-}
-
 export default function MyReports() {
   const navigate = useNavigate()
   const [reports, setReports] = useState([])
@@ -105,8 +93,6 @@ export default function MyReports() {
       style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}
     >
       <div className="mx-auto w-full max-w-5xl space-y-3">
-        <ReturnToDashboardButton onClick={() => navigate('/home')} />
-
         <section className="rounded-2xl rounded-tr-none border border-[#d7e0da] bg-white p-5 shadow-[0_12px_28px_rgba(0,68,27,0.1)]">
           <div className="flex items-start gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl rounded-br-none bg-[#00441b] text-white shadow-[0_6px_14px_rgba(0,68,27,0.22)]">

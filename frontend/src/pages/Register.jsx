@@ -25,6 +25,8 @@ export default function Register() {
   const [municipality, setMunicipality] = useState('Olongapo')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [privacyAccepted, setPrivacyAccepted] = useState(false)
+  const [privacyOpen, setPrivacyOpen] = useState(false)
   const [message, setMessage] = useState(null)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
@@ -33,6 +35,12 @@ export default function Register() {
     e.preventDefault()
     if (password !== confirm) {
       setMessage({ type: 'error', text: 'Passwords do not match' })
+      return
+    }
+
+    if (!privacyAccepted) {
+      setPrivacyOpen(true)
+      setMessage({ type: 'error', text: 'Please read and accept the Data Privacy Act notice before creating an account.' })
       return
     }
 
@@ -157,6 +165,37 @@ export default function Register() {
               autoComplete="new-password"
             />
 
+            <div className="rounded-2xl rounded-tr-none border border-[#d7e0da] bg-[#f8f9fa] p-4">
+              <label className="flex cursor-pointer items-start gap-3 text-sm leading-6 text-[#495057]">
+                <input
+                  type="checkbox"
+                  checked={privacyAccepted}
+                  onChange={() => {
+                    if (privacyAccepted) {
+                      setPrivacyAccepted(false)
+                    } else {
+                      setPrivacyOpen(true)
+                    }
+                  }}
+                  className="mt-1 h-5 w-5 shrink-0 rounded border-[#cfd8d3] accent-[#00441b]"
+                />
+                <span>
+                  I have read and agree to the{' '}
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      setPrivacyOpen(true)
+                    }}
+                    className="font-black text-[#1a5e20] underline decoration-[#4c9a2a]/45 underline-offset-4"
+                  >
+                    Data Privacy Act notice
+                  </button>
+                  .
+                </span>
+              </label>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
@@ -175,6 +214,53 @@ export default function Register() {
           </p>
         </div>
       </div>
+
+      {privacyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#001d12]/70 px-3 py-6">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-2xl rounded-tr-none border border-[#d7e0da] bg-white shadow-2xl">
+            <div className="border-b border-[#d7e0da] bg-[#f8f9fa] px-5 py-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1a5e20]">Privacy Notice</p>
+              <h2 className="mt-1 text-2xl font-black text-[#00441b]">Data Privacy Act of 2012</h2>
+            </div>
+
+            <div className="max-h-[58vh] space-y-4 overflow-y-auto px-5 py-4 text-sm leading-6 text-[#495057]">
+              <p>
+                In compliance with Republic Act No. 10173, also known as the Data Privacy Act of 2012, EcoWatch collects and processes your personal information only for environmental report submission, verification, monitoring, and official DENR-related case management.
+              </p>
+              <p>
+                The information you provide may include your name, phone number, email address, municipality, report details, location data, and uploaded evidence. These details help authorized personnel validate reports, contact you when needed, prevent misuse, and maintain accurate reporting records.
+              </p>
+              <p>
+                Your personal information will be handled with reasonable security measures and will only be accessed by authorized users for legitimate system and public service purposes. Report information may be used for monitoring, analytics, and administrative action while protecting personal details where appropriate.
+              </p>
+              <p>
+                By creating an account, you confirm that the information you provide is true and that you consent to the collection, use, storage, and processing of your personal data for the purposes stated in this notice.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-[#d7e0da] bg-white px-5 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setPrivacyOpen(false)}
+                className="min-h-12 rounded-full border border-[#cfd8d3] bg-white px-5 text-sm font-black text-[#1a5e20] shadow-[0_3px_0_#cfd8d3] transition active:translate-y-[2px] active:shadow-[0_1px_0_#cfd8d3]"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPrivacyAccepted(true)
+                  setPrivacyOpen(false)
+                  setMessage(null)
+                }}
+                className="min-h-12 rounded-full border border-[#003915] bg-[#00441b] px-5 text-sm font-black text-white shadow-[0_3px_0_#003915] transition active:translate-y-[2px] active:shadow-[0_1px_0_#003915]"
+              >
+                I Agree
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

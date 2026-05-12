@@ -7,18 +7,18 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Profile from './pages/Profile'
 import Landing from './pages/Landing'
-import AdminLogin from './admin/AdminLogin'
 import AdminDashboard from './admin/AdminDashboard'
 import AdminUsers from './admin/AdminUsers'
 import AdminReports from './admin/AdminReports'
 import AdminSettings from './admin/AdminSettings'
 import AdminLayout from './admin/AdminLayout'
 import AdminRoute from './admin/AdminRoute'
+import AdminLogin from './admin/AdminLogin'
 import Header from './components/Header'
 
 function ProtectedRoute({ children }) {
   if (!localStorage.getItem('token')) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/" replace />
   }
 
   return children
@@ -29,11 +29,13 @@ export default function App() {
   const isAdminRoute = location.pathname.startsWith('/admin')
   const isAdminLoginRoute = location.pathname === '/admin-login'
   const isLandingRoute = location.pathname === '/'
+  const isAuthRoute = ['/login', '/register', '/auth', '/auth/register', '/admin-login', '/admin/login'].includes(location.pathname)
+  const showCitizenSidebar = !isAdminRoute && !isAdminLoginRoute && !isLandingRoute && !isAuthRoute
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#fcfdfc]">
-      {!isAdminRoute && !isAdminLoginRoute && !isLandingRoute ? <Header /> : null}
-      <main>
+      {showCitizenSidebar ? <Header /> : null}
+      <main className={showCitizenSidebar ? 'pl-20 pt-20 md:pl-64' : ''}>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />

@@ -1,5 +1,5 @@
 const DEFAULT_CITIZEN_HASH = '$2a$10$HXeRxA6tNo/ZoC3TKzbL4Ow6okvIJsmWe1f6Gd8R3gUqjeU/i23ai';
-const DEFAULT_ADMIN_HASH = '$2a$10$9k6jyFYVXHxKoqC83KgEG.bCVeM..3Q8UQ.bHijdtMPu0T1Rif5/y';
+const DEFAULT_ADMIN_HASH = '$2a$10$lcZzDzLE8EvzwDyOP1Umq.q.4TbLbB00gzFBQbkIQ6a.ZUcv7Te0G';
 
 let schemaReadyPromise = null;
 
@@ -20,7 +20,9 @@ async function createSchema(db) {
       id SERIAL PRIMARY KEY,
       phone VARCHAR(20) UNIQUE,
       password_hash TEXT NOT NULL,
+      name TEXT,
       full_name TEXT,
+      role TEXT DEFAULT 'citizen',
       email VARCHAR(100) UNIQUE,
       municipality TEXT,
       is_active BOOLEAN DEFAULT TRUE,
@@ -31,6 +33,10 @@ async function createSchema(db) {
   `);
 
   await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS municipality TEXT');
+  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT');
+  await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'citizen'");
+  await db.query('UPDATE users SET name = full_name WHERE name IS NULL AND full_name IS NOT NULL');
+  await db.query("UPDATE users SET role = 'citizen' WHERE role IS NULL");
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS admin_users (
@@ -167,10 +173,13 @@ async function createSchema(db) {
   `);
 
   await db.query(
-    `INSERT INTO users (phone, email, password_hash, full_name, municipality, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+    `INSERT INTO users (phone, email, password_hash, name, full_name, role, municipality, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $4, 'citizen', $5, NOW(), NOW())
      ON CONFLICT (email) DO UPDATE
      SET password_hash = EXCLUDED.password_hash,
+         name = EXCLUDED.name,
+         full_name = EXCLUDED.full_name,
+         role = EXCLUDED.role,
          municipality = EXCLUDED.municipality,
          updated_at = NOW()`,
     ['09170000001', 'citizen@gmail.com', DEFAULT_CITIZEN_HASH, 'Citizen User', 'Olongapo']
@@ -178,12 +187,14 @@ async function createSchema(db) {
 
   await db.query(
     `INSERT INTO admin_users (email, password_hash, name, role, is_active, created_at, updated_at)
-     VALUES ($1, $2, $3, 'admin', TRUE, NOW(), NOW())
+     VALUES
+       ($1, $2, $3, 'admin', TRUE, NOW(), NOW()),
+       ($4, $2, $3, 'admin', TRUE, NOW(), NOW())
      ON CONFLICT (email) DO UPDATE
      SET password_hash = EXCLUDED.password_hash,
          is_active = TRUE,
          updated_at = NOW()`,
-    ['admin@gmail.com', DEFAULT_ADMIN_HASH, 'DENR Admin']
+    ['admin@gmail.com', DEFAULT_ADMIN_HASH, 'DENR Admin', 'admin@admin.com']
   );
 }
 

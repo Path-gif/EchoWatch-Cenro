@@ -188,6 +188,51 @@ router.get('/categories', requireAdmin, async (req, res) => {
   }
 });
 
+router.get('/users', requireAdmin, async (req, res) => {
+  try {
+    await db.query(
+      `CREATE TABLE IF NOT EXISTS users (
+         id SERIAL PRIMARY KEY,
+         phone VARCHAR(20) UNIQUE,
+         password_hash TEXT,
+         full_name TEXT,
+         name TEXT,
+         email VARCHAR(100) UNIQUE,
+         municipality TEXT,
+         is_active BOOLEAN DEFAULT TRUE,
+         last_login TIMESTAMPTZ,
+         created_at TIMESTAMPTZ DEFAULT NOW(),
+         updated_at TIMESTAMPTZ DEFAULT NOW()
+       )`
+    );
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT');
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT');
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS municipality TEXT');
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE');
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ');
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()');
+
+    const result = await db.query(
+      `SELECT
+         id,
+         COALESCE(full_name, name) AS full_name,
+         email,
+         phone,
+         municipality,
+         is_active,
+         last_login,
+         created_at
+       FROM users
+       ORDER BY created_at DESC`
+    );
+
+    return res.json({ ok: true, users: result.rows });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'internal_error' });
+  }
+});
+
 router.get('/reports/overview', requireAdmin, async (req, res) => {
   try {
     await db.query(
@@ -212,6 +257,9 @@ router.get('/reports/overview', requireAdmin, async (req, res) => {
          r.longitude,
          r.manual_location,
          r.status,
+         r.resolution_date,
+         r.resolution_notes,
+         r.updated_at,
          r.created_at,
          r.description,
          u.full_name,
@@ -259,6 +307,9 @@ router.get('/reports/overview', requireAdmin, async (req, res) => {
         longitude: toNumber(row.longitude),
         manual_location: row.manual_location,
         status: row.status,
+        resolution_date: row.resolution_date,
+        resolution_notes: row.resolution_notes,
+        updated_at: row.updated_at,
         created_at: row.created_at,
         description: row.description || null,
         submitter_name: row.full_name || null,
@@ -332,8 +383,12 @@ router.patch('/reports/:id/status', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Invalid report ID' });
     }
 
-    if (!['resolved', 'completed', 'done', 'closed', 'in_review', 'submitted'].includes(status)) {
+    if (!['acted', 'resolved', 'completed', 'done', 'closed', 'in_review', 'submitted'].includes(status)) {
       return res.status(400).json({ error: 'Invalid report status' });
+    }
+
+    if (status === 'acted' && !notes) {
+      return res.status(400).json({ error: 'DENR action description is required' });
     }
 
     await client.query('BEGIN');
@@ -359,7 +414,7 @@ router.patch('/reports/:id/status', requireAdmin, async (req, res) => {
     }
 
     const oldStatus = currentReport.rows[0].status;
-    const resolvedAt = ['resolved', 'completed', 'done', 'closed'].includes(status) ? 'NOW()' : 'NULL';
+    const resolvedAt = ['acted', 'resolved', 'completed', 'done', 'closed'].includes(status) ? 'NOW()' : 'NULL';
 
     const updateResult = await client.query(
       `UPDATE reports

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
-import { toDisplayText } from '../lib/text'
+import { normalizeUser, toDisplayText } from '../lib/text'
 import PasswordField from '../components/PasswordField'
 
 export default function AdminLogin() {
@@ -28,7 +28,19 @@ export default function AdminLogin() {
     setLoading(true)
 
     try {
-      const res = await api.post('/admin/login', { username: submittedUsername, password: submittedPassword })
+      const res = await api.post('/auth/login', { email: submittedUsername, password: submittedPassword })
+      if (res.data?.role !== 'admin') {
+        localStorage.removeItem('admin_token')
+        localStorage.removeItem('admin_user')
+        localStorage.setItem('token', res.data.token)
+        localStorage.setItem('user', JSON.stringify(normalizeUser(res.data.user)))
+        setMessage({ type: 'success', text: 'Citizen signed in successfully. Redirecting...' })
+        window.dispatchEvent(new Event('user-updated'))
+        setTimeout(() => navigate('/home'), 700)
+        return
+      }
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
       localStorage.setItem('admin_token', res.data.token)
       localStorage.setItem('admin_user', JSON.stringify(res.data.admin))
       setMessage({ type: 'success', text: 'Admin access granted. Redirecting...' })
@@ -99,7 +111,7 @@ export default function AdminLogin() {
                   name="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin@example.gov.ph"
+                placeholder="Admin@gmail.com"
                   autoComplete="username"
                   required
                   aria-label="Admin email"
@@ -126,7 +138,7 @@ export default function AdminLogin() {
             </form>
 
             <p className="mt-5 text-center text-sm text-slate-600">
-              Return to the <Link to="/login" className="font-semibold text-[#0f5f46]">public login page</Link>
+              Citizen account? <Link to="/login" className="font-semibold text-[#0f5f46]">Go to Citizen Login</Link>
             </p>
           </div>
         </section>
