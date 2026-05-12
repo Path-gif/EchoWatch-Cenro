@@ -106,6 +106,23 @@ function SidebarLink({ icon, children, to }) {
   )
 }
 
+function MobileNavLink({ icon, children, to }) {
+  const location = useLocation()
+  const isActive = location.pathname === to
+
+  return (
+    <Link
+      to={to}
+      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-black transition ${
+        isActive ? 'bg-[#00441b] text-white shadow-[0_3px_0_#003915]' : 'text-[#123629] hover:bg-[#eef6ea]'
+      }`}
+    >
+      <SidebarIcon name={icon} />
+      <span className="w-full truncate text-center">{children}</span>
+    </Link>
+  )
+}
+
 export default function Header() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -183,7 +200,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="fixed left-20 right-0 top-0 z-30 border-b border-emerald-950/10 bg-[#0f5f46] px-3 py-3 text-white shadow-lg md:left-64 md:px-5">
+      <header className="fixed left-0 right-0 top-0 z-30 border-b border-emerald-950/10 bg-[#0f5f46] px-3 py-3 text-white shadow-lg md:left-64 md:px-5">
         <div className="flex min-h-14 items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-[#e5c76b] sm:text-[11px] sm:tracking-[0.2em]">EcoWatch Citizen Portal</p>
@@ -210,7 +227,7 @@ export default function Header() {
                 </button>
 
                 {notificationOpen && (
-                  <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(20rem,calc(100vw-6rem))] overflow-hidden rounded-2xl border border-white/15 bg-[#25765b] text-white shadow-2xl ring-1 ring-black/10 sm:w-[22rem]">
+                  <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-white/15 bg-[#25765b] text-white shadow-2xl ring-1 ring-black/10 sm:w-[22rem]">
                     <div className="border-b border-white/10 px-4 py-3">
                       <p className="text-sm font-bold">Report Notifications</p>
                       <p className="mt-1 text-xs text-emerald-50/80">Completed report activity appears here.</p>
@@ -249,17 +266,17 @@ export default function Header() {
         </div>
       </header>
 
-      <aside className="fixed inset-y-0 left-0 z-40 flex w-20 flex-col bg-[#123629] text-white shadow-xl md:w-64">
-      <div className="px-3 py-5 md:px-5 md:py-6">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#123629] text-white shadow-xl md:flex">
+      <div className="px-5 py-6">
         <Link
           to={isAuthenticated ? '/home' : '/'}
           aria-label={isAuthenticated ? 'Go to citizen dashboard' : 'Go to landing page'}
-          className="flex items-center justify-center gap-3 md:justify-start"
+          className="flex items-center gap-3"
         >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-white/30 md:h-14 md:w-14">
-            <img src="/ecowatch-logo.svg" alt="EcoWatch logo" className="h-10 w-10 rounded-full object-contain md:h-12 md:w-12" />
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-white/30">
+            <img src="/ecowatch-logo.svg" alt="EcoWatch logo" className="h-12 w-12 rounded-full object-contain" />
           </span>
-          <span className="hidden min-w-0 md:block">
+          <span className="min-w-0">
             <span className="block truncate text-xl font-black">EcoWatch</span>
             <span className="block truncate text-sm font-semibold text-emerald-50/85">
               {user?.name ? `Hi, ${toDisplayText(user.name)}` : 'Citizen Portal'}
@@ -268,9 +285,9 @@ export default function Header() {
         </Link>
       </div>
 
-      <div className="mx-3 border-t border-white/15 md:mx-5" />
+      <div className="mx-5 border-t border-white/15" />
 
-      <nav className="grid gap-2 px-3 py-5 md:px-4">
+      <nav className="grid gap-2 px-4 py-5">
         {!isAuthenticated ? (
           <SidebarLink to="/login" icon="login">
             Sign In
@@ -294,19 +311,30 @@ export default function Header() {
       </nav>
 
       {isAuthenticated ? (
-        <div className="mt-auto p-3 md:p-4">
+        <div className="mt-auto p-4">
           <button
             type="button"
             onClick={handleLogout}
             title="Logout"
-            className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-red-200/20 bg-red-500/10 px-3 text-left text-sm font-black text-red-100 transition hover:bg-red-500/15 md:justify-start md:px-4"
+            className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-red-200/20 bg-red-500/10 px-4 text-left text-sm font-black text-red-100 transition hover:bg-red-500/15"
           >
             <SidebarIcon name="logout" />
-            <span className="hidden md:inline">Logout</span>
+            <span>Logout</span>
           </button>
         </div>
       ) : null}
       </aside>
+
+      {isAuthenticated ? (
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#d7e0da] bg-white/95 px-2 py-2 shadow-[0_-10px_30px_rgba(0,68,27,0.12)] backdrop-blur md:hidden">
+          <div className="mx-auto flex max-w-lg gap-1">
+            <MobileNavLink to="/home" icon="dashboard">Home</MobileNavLink>
+            <MobileNavLink to="/submit" icon="report">Submit</MobileNavLink>
+            <MobileNavLink to="/myreports" icon="list">Reports</MobileNavLink>
+            <MobileNavLink to="/editprofile" icon="profile">Profile</MobileNavLink>
+          </div>
+        </nav>
+      ) : null}
     </>
   )
 }

@@ -14,6 +14,7 @@ export default function AdminUsers() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState(null)
+  const [deletingUserId, setDeletingUserId] = useState(null)
 
   useEffect(() => {
     let isMounted = true
@@ -38,6 +39,22 @@ export default function AdminUsers() {
       isMounted = false
     }
   }, [])
+
+  async function handleDeleteUser(user) {
+    const label = toDisplayText(user.full_name || user.email || user.phone, 'this user')
+    if (!confirm(`Delete ${label}? Their submitted reports will stay in the system, but the account will be removed.`)) return
+
+    setDeletingUserId(user.id)
+    try {
+      await api.delete(`/admin/users/${user.id}`)
+      setUsers((currentUsers) => currentUsers.filter((item) => item.id !== user.id))
+      setMessage(`${label} was deleted successfully.`)
+    } catch (error) {
+      setMessage(toDisplayText(error?.response?.data?.error, 'Unable to delete user.'))
+    } finally {
+      setDeletingUserId(null)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -89,6 +106,14 @@ export default function AdminUsers() {
                     <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Registered</p>
                     <p className="mt-1 font-semibold">{formatTimestamp(user.created_at)}</p>
                   </div>
+                  <button
+                    type="button"
+                    disabled={deletingUserId === user.id}
+                    onClick={() => handleDeleteUser(user)}
+                    className="min-h-11 rounded-full border border-red-200 bg-red-50 px-4 text-sm font-black text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {deletingUserId === user.id ? 'Deleting...' : 'Delete User'}
+                  </button>
                 </div>
               </article>
             ))}
@@ -109,7 +134,19 @@ export default function AdminUsers() {
               <tbody className="divide-y divide-[#eef2ef] bg-white">
                 {users.map((user) => (
                   <tr key={user.id} className="hover:bg-[#fafcfb]">
-                    <td className="px-6 py-4 text-sm font-black text-[#123629]">{toDisplayText(user.full_name, 'Unnamed citizen')}</td>
+                    <td className="px-6 py-4 text-sm">
+                      <div className="flex flex-col gap-2">
+                        <span className="font-black text-[#123629]">{toDisplayText(user.full_name, 'Unnamed citizen')}</span>
+                        <button
+                          type="button"
+                          disabled={deletingUserId === user.id}
+                          onClick={() => handleDeleteUser(user)}
+                          className="inline-flex min-h-9 w-fit items-center rounded-full border border-red-200 bg-red-50 px-3 text-xs font-black text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {deletingUserId === user.id ? 'Deleting...' : 'Delete User'}
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-700">{toDisplayText(user.email, 'No email')}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{toDisplayText(user.phone, 'No phone')}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{toDisplayText(user.municipality, 'Not set')}</td>

@@ -35,7 +35,7 @@ export default function App() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#fcfdfc]">
       {showCitizenSidebar ? <Header /> : null}
-      <main className={showCitizenSidebar ? 'pl-20 pt-20 md:pl-64' : ''}>
+      <main className={showCitizenSidebar ? 'pb-24 pt-20 md:pb-0 md:pl-64' : ''}>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />

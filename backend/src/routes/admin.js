@@ -233,6 +233,36 @@ router.get('/users', requireAdmin, async (req, res) => {
   }
 });
 
+router.delete('/users/:id', requireAdmin, async (req, res) => {
+  const client = await db.pool.connect();
+
+  try {
+    const userId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    await client.query('BEGIN');
+
+    await client.query('UPDATE reports SET user_id = NULL WHERE user_id = $1', [userId]);
+    const result = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [userId]);
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await client.query('COMMIT');
+    return res.json({ ok: true, message: 'User deleted successfully' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    return res.status(500).json({ error: 'internal_error' });
+  } finally {
+    client.release();
+  }
+});
+
 router.get('/reports/overview', requireAdmin, async (req, res) => {
   try {
     await db.query(
