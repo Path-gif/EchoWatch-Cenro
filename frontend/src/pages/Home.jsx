@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../lib/api'
 import { toDisplayText } from '../lib/text'
@@ -88,7 +88,6 @@ function PrimaryActionTile({ to, title, text, icon, secondary = false, featured 
 
 function ReportTrackingPreview() {
   const [reports, setReports] = useState([])
-  const [searchRef, setSearchRef] = useState('')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState(null)
 
@@ -125,15 +124,9 @@ function ReportTrackingPreview() {
     }
   }, [])
 
-  const filteredReports = useMemo(() => {
-    const value = searchRef.trim().toLowerCase()
-    if (!value) return reports
-    return reports.filter((report) => String(report.reference_number || '').toLowerCase().includes(value))
-  }, [reports, searchRef])
-
   const pendingReports = reports.filter((report) => ['pending', 'submitted', 'in_review'].includes(report.status)).length
   const resolvedReports = reports.filter((report) => report.status === 'resolved').length
-  const previewReports = filteredReports.slice(0, 3)
+  const previewReports = reports.slice(0, 3)
 
   return (
     <section className="w-full rounded-2xl border border-[#d7e0da] bg-white p-5 shadow-[0_12px_28px_rgba(0,68,27,0.1)]">
@@ -145,7 +138,7 @@ function ReportTrackingPreview() {
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1a5e20]">Citizen Tracking</p>
             <h2 className="mt-1 text-3xl font-black leading-tight text-[#00441b]">My Reports</h2>
-            <p className="mt-2 text-sm leading-6 text-[#495057]">Search submitted reports and check their current status.</p>
+            <p className="mt-2 text-sm leading-6 text-[#495057]">Review submitted reports and check their current status.</p>
           </div>
         </div>
         <Link
@@ -160,26 +153,6 @@ function ReportTrackingPreview() {
         <StatTile label="Total" value={reports.length} />
         <StatTile label="Pending" value={pendingReports} tone="pending" />
         <StatTile label="Resolved" value={resolvedReports} tone="resolved" />
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-[#d7e0da] bg-[#fcfdfc] p-4">
-        <label className="mb-2 block text-sm font-bold text-[#212529]">Search by reference number</label>
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-          <input
-            type="text"
-            value={searchRef}
-            onChange={(event) => setSearchRef(event.target.value)}
-            placeholder="Example: OLO-2026-0001"
-            className="min-h-12 w-full rounded-xl border border-[#cfd8d3] bg-white px-4 py-3 text-[#212529] shadow-[inset_0_2px_6px_rgba(0,68,27,0.08)] outline-none transition placeholder:text-[#6c757d] focus:border-[#1a5e20] focus:ring-3 focus:ring-[#4c9a2a]/20"
-          />
-          <button
-            type="button"
-            onClick={() => setSearchRef('')}
-            className="min-h-12 rounded-full border border-[#cfd8d3] bg-white px-5 text-sm font-black text-[#1a5e20] shadow-[0_3px_0_#cfd8d3] transition active:translate-y-[2px] active:shadow-[0_1px_0_#cfd8d3]"
-          >
-            Clear
-          </button>
-        </div>
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-3">
@@ -206,7 +179,7 @@ function ReportTrackingPreview() {
       ) : previewReports.length === 0 ? (
         <div className="mt-4 rounded-2xl border border-dashed border-[#cfd8d3] bg-white px-5 py-8 text-center shadow-[0_8px_18px_rgba(0,68,27,0.08)]">
           <p className="text-lg font-black text-[#00441b]">No reports found</p>
-          <p className="mt-2 text-sm leading-6 text-[#495057]">No report matches the current reference number.</p>
+          <p className="mt-2 text-sm leading-6 text-[#495057]">Submitted reports will appear here once available.</p>
           <Link
             to="/submit"
             className="mt-5 inline-flex min-h-12 items-center justify-center rounded-full border border-[#003915] bg-[#00441b] px-6 text-sm font-black text-white shadow-[0_3px_0_#003915] transition active:translate-y-[2px] active:shadow-[0_1px_0_#003915]"

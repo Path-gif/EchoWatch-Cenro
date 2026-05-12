@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import { toDisplayText } from '../lib/text'
@@ -38,7 +38,6 @@ function StatTile({ label, value, tone = 'indigo' }) {
 export default function MyReports() {
   const navigate = useNavigate()
   const [reports, setReports] = useState([])
-  const [searchRef, setSearchRef] = useState('')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState(null)
 
@@ -69,12 +68,6 @@ export default function MyReports() {
     fetchReports()
   }, [])
 
-  const filteredReports = useMemo(() => {
-    const value = searchRef.trim().toLowerCase()
-    if (!value) return reports
-    return reports.filter((report) => String(report.reference_number || '').toLowerCase().includes(value))
-  }, [reports, searchRef])
-
   const totalReports = reports.length
   const pendingReports = reports.filter((report) => ['pending', 'submitted', 'in_review'].includes(report.status)).length
   const resolvedReports = reports.filter((report) => report.status === 'resolved').length
@@ -101,7 +94,7 @@ export default function MyReports() {
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#1a5e20]">Citizen Tracking</p>
               <h1 className="mt-1 text-3xl font-black leading-tight text-[#00441b]">My Reports</h1>
-              <p className="mt-2 text-sm leading-6 text-[#495057]">Search submitted reports and check their current status.</p>
+              <p className="mt-2 text-sm leading-6 text-[#495057]">Review submitted reports and check their current status.</p>
             </div>
           </div>
         </section>
@@ -123,26 +116,6 @@ export default function MyReports() {
           <StatTile label="Resolved" value={resolvedReports} tone="sage" />
         </div>
 
-        <section className="rounded-2xl rounded-tl-none border border-[#d7e0da] bg-white p-4 shadow-[0_10px_24px_rgba(0,68,27,0.08)]">
-          <label className="mb-2 block text-sm font-bold text-[#212529]">Search by reference number</label>
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-            <input
-              type="text"
-              placeholder="Example: OLO-2026-0001"
-              value={searchRef}
-              onChange={(e) => setSearchRef(e.target.value)}
-              className="min-h-12 w-full rounded-xl rounded-tr-none border border-[#cfd8d3] bg-white px-4 py-3 text-[#212529] shadow-[inset_0_2px_6px_rgba(0,68,27,0.08)] outline-none transition placeholder:text-[#6c757d] focus:border-[#1a5e20] focus:ring-3 focus:ring-[#4c9a2a]/20"
-            />
-            <button
-              type="button"
-              onClick={() => setSearchRef('')}
-              className="min-h-12 rounded-full border border-[#cfd8d3] bg-white px-5 text-sm font-black text-[#1a5e20] shadow-[0_3px_0_#cfd8d3] transition active:translate-y-[2px] active:shadow-[0_1px_0_#cfd8d3]"
-            >
-              Clear
-            </button>
-          </div>
-        </section>
-
         <div className="flex items-center justify-between gap-3 px-1">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#1a5e20]">Report List</p>
@@ -156,10 +129,10 @@ export default function MyReports() {
           </Link>
         </div>
 
-        {filteredReports.length === 0 ? (
+        {reports.length === 0 ? (
           <section className="rounded-2xl rounded-tr-none border border-dashed border-[#cfd8d3] bg-white px-5 py-8 text-center shadow-[0_8px_18px_rgba(0,68,27,0.08)]">
             <p className="text-lg font-black text-[#00441b]">No reports found</p>
-            <p className="mt-2 text-sm leading-6 text-[#495057]">No report matches the current reference number.</p>
+            <p className="mt-2 text-sm leading-6 text-[#495057]">Submitted reports will appear here once available.</p>
             <Link
               to="/submit"
               className="mt-5 inline-flex min-h-12 items-center justify-center rounded-full border border-[#003915] bg-[#00441b] px-6 text-sm font-black text-white shadow-[0_3px_0_#003915] transition active:translate-y-[2px] active:shadow-[0_1px_0_#003915]"
@@ -169,7 +142,7 @@ export default function MyReports() {
           </section>
         ) : (
           <div className="space-y-3">
-            {filteredReports.map((report, index) => (
+            {reports.map((report, index) => (
               <article
                 key={report.id}
                 className={`rounded-2xl border border-[#d7e0da] bg-white p-4 shadow-[0_8px_18px_rgba(0,68,27,0.08)] ${

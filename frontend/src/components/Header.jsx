@@ -19,6 +19,14 @@ function readSeenNotifications() {
   }
 }
 
+function readDismissedNotifications() {
+  try {
+    return JSON.parse(localStorage.getItem('dismissed_report_notifications') || '[]')
+  } catch {
+    return []
+  }
+}
+
 function formatNotificationDate(value) {
   if (!value) return 'Just now'
   return new Intl.DateTimeFormat('en-PH', {
@@ -130,6 +138,7 @@ export default function Header() {
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [seenNotifications, setSeenNotifications] = useState(readSeenNotifications())
+  const [dismissedNotifications, setDismissedNotifications] = useState(readDismissedNotifications())
   const isAuthenticated = Boolean(localStorage.getItem('token'))
   const unreadCount = notifications.filter((item) => !seenNotifications.includes(item.id)).length
 
@@ -157,7 +166,10 @@ export default function Header() {
       try {
         const response = await api.get('/reports/notifications')
         if (isMounted) {
-          setNotifications(Array.isArray(response.data?.notifications) ? response.data.notifications : [])
+          const dismissed = readDismissedNotifications()
+          const nextNotifications = Array.isArray(response.data?.notifications) ? response.data.notifications : []
+          setDismissedNotifications(dismissed)
+          setNotifications(nextNotifications.filter((item) => !dismissed.includes(item.id)))
         }
       } catch {
         if (isMounted) {
@@ -187,6 +199,18 @@ export default function Header() {
 
       return nextValue
     })
+  }
+
+  function handleDismissNotification(notificationId) {
+    const nextDismissed = Array.from(new Set([...dismissedNotifications, notificationId]))
+    const nextSeen = Array.from(new Set([...seenNotifications, notificationId]))
+
+    localStorage.setItem('dismissed_report_notifications', JSON.stringify(nextDismissed))
+    localStorage.setItem('seen_report_notifications', JSON.stringify(nextSeen))
+    setDismissedNotifications(nextDismissed)
+    setSeenNotifications(nextSeen)
+    setNotifications((items) => items.filter((item) => item.id !== notificationId))
+    setNotificationOpen(false)
   }
 
   function handleLogout() {
@@ -242,7 +266,7 @@ export default function Header() {
                           <Link
                             key={item.id}
                             to="/myreports"
-                            onClick={() => setNotificationOpen(false)}
+                            onClick={() => handleDismissNotification(item.id)}
                             className="block rounded-xl px-4 py-3 transition hover:bg-white/10"
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -268,11 +292,7 @@ export default function Header() {
 
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#123629] text-white shadow-xl md:flex">
       <div className="px-5 py-6">
-        <Link
-          to={isAuthenticated ? '/home' : '/'}
-          aria-label={isAuthenticated ? 'Go to citizen dashboard' : 'Go to landing page'}
-          className="flex items-center gap-3"
-        >
+        <div className="flex items-center gap-3">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-white/30">
             <img src="/ecowatch-logo.svg" alt="EcoWatch logo" className="h-12 w-12 rounded-full object-contain" />
           </span>
@@ -282,7 +302,7 @@ export default function Header() {
               {user?.name ? `Hi, ${toDisplayText(user.name)}` : 'Citizen Portal'}
             </span>
           </span>
-        </Link>
+        </div>
       </div>
 
       <div className="mx-5 border-t border-white/15" />
