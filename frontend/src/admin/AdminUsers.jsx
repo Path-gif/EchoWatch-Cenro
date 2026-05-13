@@ -48,9 +48,6 @@ export default function AdminUsers() {
     })
   }, [statusFilter, users])
 
-  const activeCount = users.filter((user) => user.is_active !== false).length
-  const inactiveCount = users.filter((user) => user.is_active === false).length
-
   return (
     <div className="space-y-4">
       <section className="rounded-[1.6rem] border border-[#d5dfda] bg-white p-6 shadow-sm">
@@ -69,11 +66,7 @@ export default function AdminUsers() {
 
       <section className="overflow-hidden rounded-[1.6rem] border border-[#d5dfda] bg-white shadow-sm">
         <div className="border-b border-[#e5ece8] px-5 py-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-black text-[#123629]">{filteredUsers.length} of {users.length} person{users.length === 1 ? '' : 's'} shown</p>
-              <p className="mt-1 text-xs font-semibold text-slate-500">{activeCount} active, {inactiveCount} inactive</p>
-            </div>
+          <div className="flex justify-end">
             <label className="grid gap-2 sm:w-56">
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Account status</span>
               <select
@@ -144,7 +137,6 @@ export default function AdminUsers() {
                   <th className="px-6 py-4">Municipality</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4">Registered</th>
-                  <th className="px-6 py-4">Last Login</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#eef2ef] bg-white">
@@ -166,7 +158,6 @@ export default function AdminUsers() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-700">{formatTimestamp(user.created_at)}</td>
-                    <td className="px-6 py-4 text-sm text-slate-700">{formatTimestamp(user.last_login)}</td>
                   </tr>
                 ))}
               </tbody>

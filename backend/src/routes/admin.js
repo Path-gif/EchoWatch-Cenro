@@ -77,11 +77,11 @@ function deriveMunicipality({ manual_location: manualLocation, latitude, longitu
 
 function getPublicMediaUrl(req, media) {
   if (media.file_data) {
-    return `${req.protocol}://${req.get('host')}/reports/media/${media.id}`;
+    return `/reports/media/${media.id}`;
   }
 
   if (media.file_url && media.file_url.startsWith('data:')) {
-    return `${req.protocol}://${req.get('host')}/reports/media/${media.id}`;
+    return `/reports/media/${media.id}`;
   }
 
   if (media.file_url) {
