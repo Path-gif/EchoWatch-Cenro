@@ -66,12 +66,8 @@ export default function DescriptionSuggestions({ description, setDescription, vi
     }
 
     try {
-      // If we already have remote suggestions and forceFetch is false,
-      // rotate them locally instead of re-calling the API. Allow up to
-      // `MAX_REFRESH` cycles, then loop back to the original ordering.
       if (!forceFetch && remoteSuggestions && remoteSuggestions.length > 0) {
         if (refreshCount + 1 >= MAX_REFRESH) {
-          // loop back to the original ordering
           setRemoteSuggestions(originalRemote.length ? originalRemote : remoteSuggestions)
           setRefreshCount(0)
         } else {
@@ -89,9 +85,7 @@ export default function DescriptionSuggestions({ description, setDescription, vi
         location,
         details: description || '',
       })
-      // Normalize suggestions: unwrap JSON-encoded strings and extract readable text
       const raw = Array.isArray(res.data?.suggestions) ? res.data.suggestions : []
-      // process items individually to avoid a single bad item throwing
       const cleaned = []
       for (const item of raw) {
         try {
@@ -130,19 +124,15 @@ export default function DescriptionSuggestions({ description, setDescription, vi
             cleaned.push(trimmed)
           }
         } catch (e) {
-          // ignore individual item errors and continue
           console.error('AI suggestion parse item error', e)
         }
       }
 
-      // Post-process: if violation type is Illegal Cutting, remove any mention of chainsaw
       const sanitized = cleaned.map((s) => {
         if (!s) return ''
         if (violationType === 'Illegal Cutting (Section 77)') {
-          // remove the word 'chainsaw' and variants
           let out = s.replace(/\bchainsaws?\b/gi, '')
           out = out.replace(/\s+/g, ' ').trim()
-          // remove stray space before punctuation
           out = out.replace(/\s+([.?!,])/g, '$1')
           return out
         }
@@ -153,7 +143,6 @@ export default function DescriptionSuggestions({ description, setDescription, vi
       setOriginalRemote(sanitized.length ? sanitized : [])
       setRefreshCount(0)
       if (wasEmpty && sanitized.length > 0) {
-        // prefill first suggestion when description is empty or previous prefill
         setDescription(sanitized[0])
         setUsedSuggestions([sanitized[0]])
         setLastPrefilled(sanitized[0])
@@ -162,7 +151,6 @@ export default function DescriptionSuggestions({ description, setDescription, vi
         setLastPrefilled(null)
       }
     } catch (err) {
-      // If we have fallback suggestions, prefer silently falling back
       if (!silent) {
         if (!fallbackSuggestions || fallbackSuggestions.length === 0) {
           setError(toDisplayText(err?.response?.data?.error, 'Unable to load AI suggestions right now'))
@@ -191,11 +179,9 @@ export default function DescriptionSuggestions({ description, setDescription, vi
   }
 
   const rotateLocalSuggestions = () => {
-    // If there are no remote suggestions, use the fallback suggestions
     let source = remoteSuggestions && remoteSuggestions.length > 0 ? remoteSuggestions : []
     if (!source || source.length === 0) {
       source = fallbackSuggestions
-      // initialize remote/original so subsequent refreshes keep rotating the same set
       setRemoteSuggestions(source)
       setOriginalRemote(source)
       setRefreshCount(0)
@@ -203,7 +189,6 @@ export default function DescriptionSuggestions({ description, setDescription, vi
       return
     }
 
-    // Same rotation semantics as fetchSuggestions but without touching loading
     if (refreshCount + 1 >= MAX_REFRESH) {
       setRemoteSuggestions(originalRemote.length ? originalRemote : source)
       setRefreshCount(0)
@@ -218,16 +203,12 @@ export default function DescriptionSuggestions({ description, setDescription, vi
   useEffect(() => {
     if (!violationType) return
 
-    // Reset rotation/state when violation type changes so suggestions
-    // always correspond to the selected violation.
     setRemoteSuggestions([])
     setOriginalRemote([])
     setRefreshCount(0)
     setUsedSuggestions([])
     setError(null)
 
-    // Fetch new suggestions for this violation type; silent to avoid
-    // showing transient errors to the user. Force fetch to hit API.
     fetchSuggestions({ silent: true, forceFetch: true })
   }, [violationType])
 

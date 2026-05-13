@@ -21,8 +21,8 @@ const MUNICIPALITIES = [
 ]
 
 function getReportCountColor(count) {
-  if (count >= 20) return '#dc2626'
-  if (count >= 10) return '#d6b44c'
+  if (count >= 5) return '#dc2626'
+  if (count >= 3) return '#d6b44c'
   if (count >= 1) return '#1f6a53'
   return '#d8e0db'
 }

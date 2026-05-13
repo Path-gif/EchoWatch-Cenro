@@ -216,7 +216,6 @@ router.post('/description-suggestions', async (req, res) => {
     .filter(Boolean)
     .join('\n');
 
-  // call Google Generative Language (Gemini) REST API (gemini-flash)
   const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
 
   try {
@@ -245,33 +244,23 @@ router.post('/description-suggestions', async (req, res) => {
       return res.status(response.status).json({ error: payload?.error || 'Gemini API request failed', details: payload });
     }
 
-    // Prefer to produce 3 human-readable suggestions
     let suggestions = generateThreeSuggestionsFromPayload(payload || {});
 
-    // Post-process suggestions: strip dates/locations and shorten
     function postProcessSuggestion(s) {
       if (!s || typeof s !== 'string') return '';
       let out = s;
-      // remove common date/time patterns
       out = out.replace(/\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun|January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)\b[^.\n]*/gi, '');
       out = out.replace(/\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/g, '');
       out = out.replace(/\b\d{1,2}:\d{2}(?:\s?[AP]M)?\b/gi, '');
-      // remove 'Barangay' and following words up to comma or end
       out = out.replace(/\bBarangay\b[^,\n\.]*/gi, '');
-      // remove phrases like 'located at ...' or 'in [place]'
       out = out.replace(/located at[^.\n]*/gi, '');
       out = out.replace(/\bin [A-Z][a-zA-Z0-9_\- ]{1,60}/gi, '');
-      // remove plate numbers patterns (simple heuristic)
       out = out.replace(/\b[A-Z]{1,3}-?\d{1,4}\b/g, '');
-      // collapse whitespace
       out = out.replace(/\s+/g, ' ').trim();
-      // take first sentence
       const m = out.match(/[^.?!]+[.?!]?/);
       out = m ? m[0].trim() : out;
-      // limit to 25 words
       const words = out.split(/\s+/).filter(Boolean);
       if (words.length > 25) out = words.slice(0, 25).join(' ') + '.';
-      // ensure ends with period
       if (out && !/[.?!]$/.test(out)) out = out + '.';
       return out;
     }
