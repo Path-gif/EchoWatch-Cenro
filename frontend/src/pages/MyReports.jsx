@@ -5,7 +5,9 @@ import { toDisplayText } from '../lib/text'
 
 function statusClasses(status) {
   if (status === 'resolved') return 'border-[#b9d7b3] bg-[#eef6ea] text-[#1a5e20]'
-  if (['pending', 'submitted', 'in_review'].includes(status)) return 'border-[#c6d8bd] bg-[#f4f8f1] text-[#33691e]'
+  if (status === 'pending') return 'border-[#e5c76b] bg-[#fff7d6] text-[#8a6200]'
+  if (status === 'submitted') return 'border-[#111827] bg-[#111827] text-white'
+  if (status === 'in_review') return 'border-[#c6d8bd] bg-[#f4f8f1] text-[#33691e]'
   return 'border-[#d4d9dd] bg-[#f8f9fa] text-[#495057]'
 }
 

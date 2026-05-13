@@ -11,6 +11,8 @@ const upload = multer({
   limits: { fileSize: 4 * 1024 * 1024, files: 5 },
 })
 
+const DAILY_REPORT_LIMIT = 3;
+
 const MUNICIPALITIES = [
   { name: 'Olongapo', code: 'OLO', latitude: 14.8386, longitude: 120.2842 },
   { name: 'Subic', code: 'SUB', latitude: 14.8799, longitude: 120.2312 },
@@ -238,6 +240,22 @@ router.post('/', requireUser, uploadEvidence, async (req, res) => {
 
   try {
     await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1)', [Number(req.user.sub)]);
+
+    const dailyCountResult = await client.query(
+      `SELECT COUNT(*)::int AS count
+       FROM reports
+       WHERE user_id = $1
+         AND created_at >= ((NOW() AT TIME ZONE 'Asia/Manila')::date AT TIME ZONE 'Asia/Manila')
+         AND created_at < (((NOW() AT TIME ZONE 'Asia/Manila')::date + INTERVAL '1 day') AT TIME ZONE 'Asia/Manila')`,
+      [req.user.sub]
+    );
+
+    const submittedToday = Number(dailyCountResult.rows[0]?.count) || 0;
+    if (submittedToday >= DAILY_REPORT_LIMIT) {
+      await client.query('ROLLBACK');
+      return res.status(429).json({ error: 'Daily report limit reached. You can submit up to 3 reports per day.' });
+    }
 
     const categoryName = deriveCategoryName(violationType);
     let categoryId = null;

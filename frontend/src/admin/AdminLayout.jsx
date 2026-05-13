@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 function Icon({ name }) {
   const paths = {
@@ -56,7 +56,7 @@ export default function AdminLayout() {
     <div className="min-h-screen bg-[#edf1ef] text-[#17261f] lg:grid lg:grid-cols-[19rem_1fr] lg:items-stretch">
       <aside className="sticky top-0 z-40 border-b border-[#0d2d23]/15 bg-[#123629] text-white shadow-lg lg:static lg:flex lg:min-h-screen lg:flex-col lg:self-stretch lg:overflow-visible lg:border-b-0 lg:border-r lg:border-white/10">
         <div className="flex min-h-[76px] items-center justify-between gap-3 px-4 py-3 lg:min-h-0 lg:flex-col lg:items-stretch lg:px-5 lg:py-6">
-          <Link to="/" aria-label="Go to landing page" className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-white/25">
               <img src="/ecowatch-logo.svg" alt="EcoWatch logo" className="h-11 w-11 rounded-full object-contain" />
             </span>
@@ -64,7 +64,7 @@ export default function AdminLayout() {
               <span className="block truncate text-xl font-black">EcoWatch</span>
               <span className="block truncate text-sm font-semibold text-emerald-50/85">Admin Portal</span>
             </span>
-          </Link>
+          </div>
 
           <button
             type="button"

@@ -444,7 +444,9 @@ router.patch('/reports/:id/status', requireAdmin, async (req, res) => {
     }
 
     const oldStatus = currentReport.rows[0].status;
-    const resolvedAt = ['acted', 'resolved', 'completed', 'done', 'closed'].includes(status) ? 'NOW()' : 'NULL';
+    const finishedStatuses = ['acted', 'resolved', 'completed', 'done', 'closed'];
+    const isFinishedStatus = finishedStatuses.includes(status);
+    const resolvedAt = isFinishedStatus ? 'NOW()' : 'NULL';
 
     const updateResult = await client.query(
       `UPDATE reports
@@ -462,6 +464,14 @@ router.patch('/reports/:id/status', requireAdmin, async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [reportId, req.admin.sub, 'status_update', oldStatus, status, notes || null]
     );
+
+    if (isFinishedStatus) {
+      await client.query(
+        `INSERT INTO report_activities (report_id, admin_id, activity_type, old_status, new_status, notes)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [reportId, req.admin.sub, 'finished_report', oldStatus, status, notes || null]
+      );
+    }
 
     await client.query('COMMIT');
     return res.json({ ok: true, report: updateResult.rows[0] });
