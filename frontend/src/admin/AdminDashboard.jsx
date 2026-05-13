@@ -19,7 +19,7 @@ const REFRESH_INTERVAL_MS = 15000
 
 function getReportCountColor(count) {
   if (count >= 5) return '#dc2626'
-  if (count >= 3) return '#d6b44c'
+  if (count >= 3) return '#facc15'
   if (count >= 1) return '#1f6a53'
   return '#d8e0db'
 }
@@ -176,7 +176,7 @@ export default function AdminDashboard() {
           </div>
           <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-600">
             <span className="inline-flex items-center gap-2 rounded-full border border-[#d6dfd9] bg-white px-3 py-1"><span className="h-2.5 w-2.5 rounded-full bg-[#1f6a53]" />1-2</span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-[#d6dfd9] bg-white px-3 py-1"><span className="h-2.5 w-2.5 rounded-full bg-[#d6b44c]" />3-4</span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#d6dfd9] bg-white px-3 py-1"><span className="h-2.5 w-2.5 rounded-full bg-[#facc15]" />3-4</span>
             <span className="inline-flex items-center gap-2 rounded-full border border-[#d6dfd9] bg-white px-3 py-1"><span className="h-2.5 w-2.5 rounded-full bg-[#dc2626]" />5+</span>
           </div>
         </div>

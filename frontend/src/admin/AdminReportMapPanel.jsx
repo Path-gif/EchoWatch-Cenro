@@ -22,7 +22,7 @@ const MUNICIPALITIES = [
 
 function getReportCountColor(count) {
   if (count >= 5) return '#dc2626'
-  if (count >= 3) return '#d6b44c'
+  if (count >= 3) return '#facc15'
   if (count >= 1) return '#1f6a53'
   return '#d8e0db'
 }
@@ -39,9 +39,10 @@ function createReportDotIcon() {
 
 function createReportClusterIcon(count) {
   const color = getReportCountColor(count)
+  const textColor = count >= 3 && count < 5 ? '#123629' : '#ffffff'
   return L.divIcon({
     className: '',
-    html: `<div style="width:42px;height:42px;border-radius:9999px;display:grid;place-items:center;background:${color};border:5px solid #ffffff;box-shadow:0 12px 28px rgba(15,23,42,0.3);color:#ffffff;font:800 14px/1 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${count}</div>`,
+    html: `<div style="width:42px;height:42px;border-radius:9999px;display:grid;place-items:center;background:${color};border:5px solid #ffffff;box-shadow:0 12px 28px rgba(15,23,42,0.3);color:${textColor};font:800 14px/1 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${count}</div>`,
     iconSize: [42, 42],
     iconAnchor: [21, 21],
     popupAnchor: [0, -21],
@@ -122,17 +123,18 @@ function MapReportMarkers({ groupedReports, onSelectReport }) {
 
     if (shouldCluster) {
       const center = getClusterCenter(group.reports)
+      const count = group.reports.length
       return (
         <Marker
-          key={`${group.municipality}-cluster`}
+          key={`${group.municipality}-cluster-${count}`}
           position={center}
-          icon={createReportClusterIcon(group.reports.length)}
+          icon={createReportClusterIcon(count)}
           eventHandlers={{ click: () => map.setView(center, CLUSTER_EXPAND_ZOOM, { animate: true }) }}
         >
           <Popup>
             <div className="min-w-[190px] text-sm text-slate-700">
               <p className="font-bold text-slate-900">{group.municipality}</p>
-              <p className="mt-1">{group.reports.length} mapped reports</p>
+              <p className="mt-1">{count} mapped reports</p>
               <p className="mt-1 text-xs text-slate-500">Zoom in to view individual report dots.</p>
             </div>
           </Popup>
