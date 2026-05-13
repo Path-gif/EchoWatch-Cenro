@@ -131,6 +131,19 @@ function MobileNavLink({ icon, children, to }) {
   )
 }
 
+function MobileNavButton({ icon, children, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-black text-[#8a2f20] transition hover:bg-red-50"
+    >
+      <SidebarIcon name={icon} />
+      <span className="w-full truncate text-center">{children}</span>
+    </button>
+  )
+}
+
 export default function Header() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -352,6 +365,7 @@ export default function Header() {
             <MobileNavLink to="/submit" icon="report">Submit</MobileNavLink>
             <MobileNavLink to="/myreports" icon="list">Reports</MobileNavLink>
             <MobileNavLink to="/editprofile" icon="profile">Profile</MobileNavLink>
+            <MobileNavButton icon="logout" onClick={handleLogout}>Logout</MobileNavButton>
           </div>
         </nav>
       ) : null}
