@@ -11,6 +11,7 @@ import {
 import { Bar } from 'react-chartjs-2'
 import api from '../lib/api'
 import { toDisplayText } from '../lib/text'
+import AdminReportMapPanel from './AdminReportMapPanel'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -160,6 +161,12 @@ export default function AdminDashboard() {
           <p className="mt-2 text-sm text-slate-600">The municipality with the highest current report volume.</p>
         </div>
       </section>
+
+      <AdminReportMapPanel
+        reports={overview.reports}
+        municipalityCounts={overview.municipality_counts}
+        loading={loading}
+      />
 
       <section className="rounded-[1.25rem] border border-[#d6dfd9] bg-white p-4 shadow-sm sm:rounded-[1.7rem] sm:p-6">
         <div className="flex flex-col gap-3 border-b border-[#e5ece8] pb-4 lg:flex-row lg:items-end lg:justify-between">

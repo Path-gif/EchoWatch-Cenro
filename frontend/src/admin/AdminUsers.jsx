@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import api from '../lib/api'
 import { toDisplayText } from '../lib/text'
 
@@ -12,9 +12,9 @@ function formatTimestamp(value) {
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([])
+  const [statusFilter, setStatusFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState(null)
-  const [deletingUserId, setDeletingUserId] = useState(null)
 
   useEffect(() => {
     let isMounted = true
@@ -40,21 +40,16 @@ export default function AdminUsers() {
     }
   }, [])
 
-  async function handleDeleteUser(user) {
-    const label = toDisplayText(user.full_name || user.email || user.phone, 'this user')
-    if (!confirm(`Delete ${label}? Their submitted reports will stay in the system, but the account will be removed.`)) return
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      if (statusFilter === 'active') return user.is_active !== false
+      if (statusFilter === 'inactive') return user.is_active === false
+      return true
+    })
+  }, [statusFilter, users])
 
-    setDeletingUserId(user.id)
-    try {
-      await api.delete(`/admin/users/${user.id}`)
-      setUsers((currentUsers) => currentUsers.filter((item) => item.id !== user.id))
-      setMessage(`${label} was deleted successfully.`)
-    } catch (error) {
-      setMessage(toDisplayText(error?.response?.data?.error, 'Unable to delete user.'))
-    } finally {
-      setDeletingUserId(null)
-    }
-  }
+  const activeCount = users.filter((user) => user.is_active !== false).length
+  const inactiveCount = users.filter((user) => user.is_active === false).length
 
   return (
     <div className="space-y-4">
@@ -74,19 +69,47 @@ export default function AdminUsers() {
 
       <section className="overflow-hidden rounded-[1.6rem] border border-[#d5dfda] bg-white shadow-sm">
         <div className="border-b border-[#e5ece8] px-5 py-4">
-          <p className="text-sm font-black text-[#123629]">{users.length} person{users.length === 1 ? '' : 's'} registered</p>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-black text-[#123629]">{filteredUsers.length} of {users.length} person{users.length === 1 ? '' : 's'} shown</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">{activeCount} active, {inactiveCount} inactive</p>
+            </div>
+            <label className="grid gap-2 sm:w-56">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Account status</span>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="min-h-11 rounded-xl border border-[#cfd8d3] bg-white px-4 text-sm font-semibold text-slate-800 outline-none focus:border-[#0f5f46] focus:ring-2 focus:ring-[#0f5f46]/15"
+              >
+                <option value="all">All users</option>
+                <option value="active">Active only</option>
+                <option value="inactive">Inactive only</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         {loading ? (
           <div className="px-5 py-10 text-center text-sm font-semibold text-slate-500">Loading registered users...</div>
         ) : users.length === 0 ? (
           <div className="px-5 py-10 text-center text-sm font-semibold text-slate-500">No registered users yet.</div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="px-5 py-10 text-center text-sm font-semibold text-slate-500">No users match the selected account status.</div>
         ) : (
           <>
           <div className="grid gap-3 p-4 md:hidden">
-            {users.map((user) => (
+            {filteredUsers.map((user) => (
               <article key={user.id} className="rounded-2xl border border-[#dbe4df] bg-white p-4 shadow-sm">
-                <p className="text-base font-black text-[#123629]">{toDisplayText(user.full_name, 'Unnamed citizen')}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-base font-black text-[#123629]">{toDisplayText(user.full_name, 'Unnamed citizen')}</p>
+                  <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase ${
+                    user.is_active === false
+                      ? 'border-slate-300 bg-slate-100 text-slate-600'
+                      : 'border-[#b9d7b3] bg-[#eef6ea] text-[#1a5e20]'
+                  }`}>
+                    {user.is_active === false ? 'Inactive' : 'Active'}
+                  </span>
+                </div>
                 <div className="mt-3 grid gap-2 text-sm text-slate-700">
                   <div className="rounded-xl border border-[#eef2ef] bg-[#f8fbf9] px-3 py-2">
                     <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Email</p>
@@ -106,14 +129,6 @@ export default function AdminUsers() {
                     <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Registered</p>
                     <p className="mt-1 font-semibold">{formatTimestamp(user.created_at)}</p>
                   </div>
-                  <button
-                    type="button"
-                    disabled={deletingUserId === user.id}
-                    onClick={() => handleDeleteUser(user)}
-                    className="min-h-11 rounded-full border border-red-200 bg-red-50 px-4 text-sm font-black text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {deletingUserId === user.id ? 'Deleting...' : 'Delete User'}
-                  </button>
                 </div>
               </article>
             ))}
@@ -127,29 +142,29 @@ export default function AdminUsers() {
                   <th className="px-6 py-4">Email</th>
                   <th className="px-6 py-4">Phone</th>
                   <th className="px-6 py-4">Municipality</th>
+                  <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4">Registered</th>
                   <th className="px-6 py-4">Last Login</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#eef2ef] bg-white">
-                {users.map((user) => (
+                {filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-[#fafcfb]">
                     <td className="px-6 py-4 text-sm">
-                      <div className="flex flex-col gap-2">
-                        <span className="font-black text-[#123629]">{toDisplayText(user.full_name, 'Unnamed citizen')}</span>
-                        <button
-                          type="button"
-                          disabled={deletingUserId === user.id}
-                          onClick={() => handleDeleteUser(user)}
-                          className="inline-flex min-h-9 w-fit items-center rounded-full border border-red-200 bg-red-50 px-3 text-xs font-black text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {deletingUserId === user.id ? 'Deleting...' : 'Delete User'}
-                        </button>
-                      </div>
+                      <span className="font-black text-[#123629]">{toDisplayText(user.full_name, 'Unnamed citizen')}</span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-700">{toDisplayText(user.email, 'No email')}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{toDisplayText(user.phone, 'No phone')}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{toDisplayText(user.municipality, 'Not set')}</td>
+                    <td className="px-6 py-4 text-sm">
+                      <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase ${
+                        user.is_active === false
+                          ? 'border-slate-300 bg-slate-100 text-slate-600'
+                          : 'border-[#b9d7b3] bg-[#eef6ea] text-[#1a5e20]'
+                      }`}>
+                        {user.is_active === false ? 'Inactive' : 'Active'}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-700">{formatTimestamp(user.created_at)}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{formatTimestamp(user.last_login)}</td>
                   </tr>

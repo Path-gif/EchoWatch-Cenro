@@ -1,15 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import L from 'leaflet'
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
-import 'leaflet/dist/leaflet.css'
 import api from '../lib/api'
 import { toDisplayText } from '../lib/text'
 
 const REFRESH_INTERVAL_MS = 15000
-const DEFAULT_CENTER = [14.987, 120.105]
-const DEFAULT_ZOOM = 10
-const CLUSTER_MIN_REPORTS = 3
-const CLUSTER_EXPAND_ZOOM = 13
 
 const MUNICIPALITIES = [
   { name: 'Olongapo', latitude: 14.8386, longitude: 120.2842 },
@@ -28,57 +21,6 @@ const REPORTED_CASES = [
   'Mining Act (RA 9275)',
   'Wildlife (RA 9147)',
 ]
-
-function getReportCountColor(count) {
-  if (count >= 20) return '#dc2626'
-  if (count >= 10) return '#d6b44c'
-  if (count >= 1) return '#1f6a53'
-  return '#d8e0db'
-}
-
-function createReportDotIcon() {
-  return L.divIcon({
-    className: '',
-    html: `
-      <div style="
-        width: 18px;
-        height: 18px;
-        border-radius: 9999px;
-        background: #0f5f46;
-        border: 4px solid #ffffff;
-        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.28);
-      "></div>
-    `,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-    popupAnchor: [0, -9],
-  })
-}
-
-function createReportClusterIcon(count) {
-  const color = getReportCountColor(count)
-
-  return L.divIcon({
-    className: '',
-    html: `
-      <div style="
-        width: 42px;
-        height: 42px;
-        border-radius: 9999px;
-        display: grid;
-        place-items: center;
-        background: ${color};
-        border: 5px solid #ffffff;
-        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.3);
-        color: #ffffff;
-        font: 800 14px/1 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      ">${count}</div>
-    `,
-    iconSize: [42, 42],
-    iconAnchor: [21, 21],
-    popupAnchor: [0, -21],
-  })
-}
 
 function formatTimestamp(value) {
   if (!value) return 'No timestamp'
@@ -100,15 +42,6 @@ function getLocalDateKey(value) {
   return `${year}-${month}-${day}`
 }
 
-function getStartOfWeek(value) {
-  const date = new Date(value)
-  const day = date.getDay()
-  const daysSinceMonday = day === 0 ? 6 : day - 1
-  date.setHours(0, 0, 0, 0)
-  date.setDate(date.getDate() - daysSinceMonday)
-  return date
-}
-
 function escapeExcelCell(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -118,172 +51,22 @@ function escapeExcelCell(value) {
     .replace(/'/g, '&#39;')
 }
 
-function normalizeMediaUrl(url) {
-  if (!url) return ''
-  if (/^(https?:|blob:)/i.test(url)) return url
-
-  const baseURL = api.defaults.baseURL || ''
-  return `${baseURL}${url.startsWith('/') ? '' : '/'}${url}`
-}
-
-function getReportPosition(report) {
-  const latitude = Number(report.latitude)
-  const longitude = Number(report.longitude)
-
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
-  return [latitude, longitude]
-}
-
-function getClusterCenter(reports) {
-  const totals = reports.reduce((sum, report) => {
-    sum.latitude += report.position[0]
-    sum.longitude += report.position[1]
-    return sum
-  }, { latitude: 0, longitude: 0 })
-
-  return [totals.latitude / reports.length, totals.longitude / reports.length]
-}
-
-function EvidencePreview({ report }) {
-  const image = (report.evidence_media || []).find((media) => media.is_image && media.url)
-  if (!image) return <span className="text-sm text-slate-400">No photo</span>
-
-  const imageUrl = normalizeMediaUrl(image.url)
-  return (
-    <a href={imageUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-3">
-      <img src={imageUrl} alt={`Evidence for ${toDisplayText(report.reference_number, 'report')}`} className="h-14 w-16 rounded-lg border border-[#dbe4df] object-cover shadow-sm" />
-      <span className="text-sm font-semibold text-[#0f5f46] hover:underline">View photo</span>
-    </a>
-  )
-}
-
-function MapReportMarkers({ groupedReports, onSelectReport }) {
-  const map = useMap()
-  const [zoom, setZoom] = useState(map.getZoom())
-
-  useEffect(() => {
-    function handleZoomEnd() {
-      setZoom(map.getZoom())
-    }
-
-    map.on('zoomend', handleZoomEnd)
-    return () => map.off('zoomend', handleZoomEnd)
-  }, [map])
-
-  return groupedReports.flatMap((group) => {
-    const shouldCluster = group.reports.length >= CLUSTER_MIN_REPORTS && zoom < CLUSTER_EXPAND_ZOOM
-
-    if (shouldCluster) {
-      const center = getClusterCenter(group.reports)
-      return (
-        <Marker
-          key={`${group.municipality}-cluster`}
-          position={center}
-          icon={createReportClusterIcon(group.reports.length)}
-          eventHandlers={{
-            click: () => map.setView(center, CLUSTER_EXPAND_ZOOM, { animate: true }),
-          }}
-        >
-          <Popup>
-            <div className="min-w-[190px] text-sm text-slate-700">
-              <p className="font-bold text-slate-900">{group.municipality}</p>
-              <p className="mt-1">{group.reports.length} mapped reports</p>
-              <p className="mt-1 text-xs text-slate-500">Zoom in to view individual report dots.</p>
-            </div>
-          </Popup>
-        </Marker>
-      )
-    }
-
-    return group.reports.map((report) => (
-      <Marker
-        key={report.id || `${group.municipality}-${report.position.join(',')}`}
-        position={report.position}
-        icon={createReportDotIcon()}
-        eventHandlers={{ click: () => onSelectReport(report.id) }}
-      >
-        <Popup>
-          <div className="min-w-[190px] text-sm text-slate-700">
-            <p className="font-bold text-slate-900">{toDisplayText(report.reference_number, 'Report')}</p>
-            <p className="mt-1">{toDisplayText(report.violation_type, 'Untitled report')}</p>
-            <p className="mt-1 text-xs text-slate-500">{group.municipality}</p>
-            <button
-              type="button"
-              onClick={() => onSelectReport(report.id)}
-              className="mt-3 rounded-full border border-[#cfd8d3] bg-white px-3 py-1.5 text-xs font-black text-[#0f5f46]"
-            >
-              View details
-            </button>
-          </div>
-        </Popup>
-      </Marker>
-    ))
-  })
-}
-
-function OverviewMap({ reports, onSelectReport }) {
-  const supportedMunicipalities = useMemo(() => new Set(MUNICIPALITIES.map((municipality) => municipality.name)), [])
-  const groupedReports = useMemo(() => {
-    const groups = MUNICIPALITIES.map((municipality) => ({
-      municipality: municipality.name,
-      reports: [],
-    }))
-    const groupByName = groups.reduce((lookup, group) => {
-      lookup[group.municipality] = group
-      return lookup
-    }, {})
-
-    reports.forEach((report) => {
-      const municipality = toDisplayText(report.municipality)
-      const position = getReportPosition(report)
-      if (!supportedMunicipalities.has(municipality) || !position) return
-
-      groupByName[municipality].reports.push({ ...report, position })
-    })
-
-    return groups.filter((group) => group.reports.length > 0)
-  }, [reports, supportedMunicipalities])
-
-  return (
-    <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom className="h-[320px] w-full sm:h-[420px]">
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <MapReportMarkers groupedReports={groupedReports} onSelectReport={onSelectReport} />
-    </MapContainer>
-  )
-}
-
-function DetailField({ label, children }) {
-  return (
-    <div className="rounded-[1.05rem] border border-[#dbe4df] bg-[#f8fbf9] px-4 py-4">
-      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46]">{label}</p>
-      <div className="mt-2 text-sm leading-6 text-slate-700">{children}</div>
-    </div>
-  )
-}
-
 export default function AdminReports() {
   const [overview, setOverview] = useState({ generated_at: null, municipality_counts: [], reports: [] })
-  const [selectedReportId, setSelectedReportId] = useState(null)
   const [municipalityFilter, setMunicipalityFilter] = useState('all')
   const [caseFilter, setCaseFilter] = useState('all')
-  const [dateFilter, setDateFilter] = useState('')
+  const [previousDateFilter, setPreviousDateFilter] = useState('')
+  const [presentDateFilter, setPresentDateFilter] = useState(getLocalDateKey(new Date()))
   const [referenceSearch, setReferenceSearch] = useState('')
-  const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState(null)
   const [actionReport, setActionReport] = useState(null)
   const [actionNotes, setActionNotes] = useState('')
   const [savingAction, setSavingAction] = useState(false)
-  const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
   useEffect(() => {
     let isMounted = true
 
-    async function fetchOverview({ silent = false } = {}) {
-      if (!silent) setLoading(true)
-
+    async function fetchOverview() {
       try {
         const response = await api.get('/admin/reports/overview')
         if (!isMounted) return
@@ -296,13 +79,11 @@ export default function AdminReports() {
         setMessage(null)
       } catch (error) {
         if (isMounted) setMessage(toDisplayText(error?.response?.data?.error, 'Unable to load reports.'))
-      } finally {
-        if (isMounted) setLoading(false)
       }
     }
 
     fetchOverview()
-    const intervalId = window.setInterval(() => fetchOverview({ silent: true }), REFRESH_INTERVAL_MS)
+    const intervalId = window.setInterval(fetchOverview, REFRESH_INTERVAL_MS)
 
     return () => {
       isMounted = false
@@ -317,38 +98,13 @@ export default function AdminReports() {
       const matchesMunicipality = municipalityFilter === 'all' || toDisplayText(report.municipality) === municipalityFilter
       const matchesCase = caseFilter === 'all' || toDisplayText(report.violation_type) === caseFilter
       const matchesReference = !query || toDisplayText(report.reference_number).toLowerCase().includes(query)
-      const reportDate = report.created_at ? new Date(report.created_at).toISOString().slice(0, 10) : ''
-      const matchesDate = !dateFilter || reportDate === dateFilter
+      const reportDate = getLocalDateKey(report.created_at)
+      const matchesDate =
+        (!previousDateFilter || reportDate >= previousDateFilter) &&
+        (!presentDateFilter || reportDate <= presentDateFilter)
       return matchesMunicipality && matchesCase && matchesReference && matchesDate
     })
-  }, [caseFilter, dateFilter, municipalityFilter, overview.reports, referenceSearch])
-
-  const selectedReport = useMemo(() => {
-    return overview.reports.find((report) => report.id === selectedReportId) || null
-  }, [overview.reports, selectedReportId])
-
-  const highestMunicipality = useMemo(() => {
-    return overview.municipality_counts.reduce((highest, item) => {
-      const count = Number(item.count) || 0
-      if (!highest || count > highest.count) {
-        return { municipality: item.municipality, count }
-      }
-      return highest
-    }, null)
-  }, [overview.municipality_counts])
-
-  const highestAreaReports = useMemo(() => {
-    if (!highestMunicipality?.municipality || highestMunicipality.count === 0) return []
-    return overview.reports
-      .filter((report) => toDisplayText(report.municipality) === highestMunicipality.municipality)
-      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-  }, [highestMunicipality, overview.reports])
-
-  useEffect(() => {
-    if (selectedReportId && !overview.reports.some((report) => report.id === selectedReportId)) {
-      setSelectedReportId(null)
-    }
-  }, [overview.reports, selectedReportId])
+  }, [caseFilter, municipalityFilter, overview.reports, presentDateFilter, previousDateFilter, referenceSearch])
 
   function openActionEditor(report) {
     setActionReport(report)
@@ -408,38 +164,33 @@ export default function AdminReports() {
         ...prev,
         reports: prev.reports.filter((report) => report.id !== reportId),
       }))
-      if (selectedReportId === reportId) setSelectedReportId(null)
       setMessage('Report deleted successfully.')
     } catch (error) {
       setMessage(toDisplayText(error?.response?.data?.error, 'Failed to delete report.'))
     }
   }
 
-  function getReportsForExport(period) {
-    const now = new Date()
-    const start = period === 'month'
-      ? new Date(now.getFullYear(), now.getMonth(), 1)
-      : getStartOfWeek(now)
+  function getReportsForExport() {
     const query = referenceSearch.trim().toLowerCase()
 
     return overview.reports.filter((report) => {
-      const submittedAt = report.created_at ? new Date(report.created_at) : null
-      if (!submittedAt || Number.isNaN(submittedAt.getTime())) return false
-
-      const matchesPeriod = submittedAt >= start && submittedAt <= now
       const matchesMunicipality = municipalityFilter === 'all' || toDisplayText(report.municipality) === municipalityFilter
       const matchesCase = caseFilter === 'all' || toDisplayText(report.violation_type) === caseFilter
       const matchesReference = !query || toDisplayText(report.reference_number).toLowerCase().includes(query)
-      return matchesPeriod && matchesMunicipality && matchesCase && matchesReference
+      const reportDate = getLocalDateKey(report.created_at)
+      const matchesDate =
+        (!previousDateFilter || reportDate >= previousDateFilter) &&
+        (!presentDateFilter || reportDate <= presentDateFilter)
+      return matchesMunicipality && matchesCase && matchesReference && matchesDate
     })
   }
 
-  function downloadExcel(period) {
-    const rows = getReportsForExport(period)
-    const periodLabel = period === 'month' ? 'This Month' : 'This Week'
+  function downloadExcel() {
+    const rows = getReportsForExport()
+    const scopeLabel = municipalityFilter === 'all' ? 'all municipalities' : municipalityFilter
 
     if (rows.length === 0) {
-      setMessage(`No reports found for ${periodLabel.toLowerCase()} export.`)
+      setMessage(`No reports found for ${scopeLabel} export.`)
       return
     }
 
@@ -480,7 +231,7 @@ export default function AdminReports() {
       .map((row) => `<tr>${row.map((cell) => `<td>${escapeExcelCell(cell)}</td>`).join('')}</tr>`)
       .join('')
     const generatedAt = formatTimestamp(new Date().toISOString())
-    const title = `EcoWatch Reports - ${periodLabel}`
+    const title = `EcoWatch Reports - ${municipalityFilter === 'all' ? 'All Municipalities' : municipalityFilter}`
     const html = `<!doctype html>
       <html>
         <head>
@@ -508,13 +259,14 @@ export default function AdminReports() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `ecowatch-reports-${period}-${getLocalDateKey(new Date())}.xls`
+    const municipalitySlug = municipalityFilter === 'all' ? 'all-municipalities' : municipalityFilter.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    const dateSlug = previousDateFilter || presentDateFilter ? `${previousDateFilter || 'start'}-to-${presentDateFilter || 'present'}` : 'all-dates'
+    link.download = `ecowatch-reports-${municipalitySlug}-${dateSlug}-${getLocalDateKey(new Date())}.xls`
     document.body.appendChild(link)
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
-    setExportMenuOpen(false)
-    setMessage(`Exported ${rows.length} report${rows.length === 1 ? '' : 's'} for ${periodLabel.toLowerCase()}.`)
+    setMessage(`Exported ${rows.length} report${rows.length === 1 ? '' : 's'} for ${scopeLabel}.`)
   }
 
   return (
@@ -541,128 +293,31 @@ export default function AdminReports() {
         </div>
       ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="overflow-hidden rounded-[1.25rem] border border-[#d6dfd9] bg-white shadow-sm sm:rounded-[1.7rem]">
-          <div className="border-b border-[#e5ece8] px-4 py-4 sm:px-6 sm:py-5">
-            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46]">Interactive Map</p>
-            <h3 className="mt-2 text-xl font-black text-[#123629] sm:text-2xl">Reported Areas</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              Report dots show exact mapped locations, while municipalities with three or more reports cluster until you zoom in.
-            </p>
-          </div>
-          <div className="bg-[#eef3f0]">
-            {loading ? (
-              <div className="flex h-[320px] items-center justify-center text-sm text-slate-500 sm:h-[420px]">Loading report markers...</div>
-            ) : (
-              <OverviewMap reports={overview.reports} onSelectReport={setSelectedReportId} />
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-[1.25rem] border border-[#d6dfd9] bg-white p-4 shadow-sm sm:rounded-[1.7rem] sm:p-6">
-          <div className="border-b border-[#e5ece8] pb-4">
-            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46]">
-              {selectedReport ? 'Case Details' : 'Highest Reported Area'}
-            </p>
-            <h3 className="mt-2 break-words text-xl font-black text-[#123629] sm:text-2xl">
-              {selectedReport
-                ? toDisplayText(selectedReport.reference_number, 'No reference number')
-                : highestMunicipality?.count
-                  ? `${highestMunicipality.municipality} (${highestMunicipality.count})`
-                  : 'No reported area yet'}
-            </h3>
-          </div>
-
-          {selectedReport ? (
-            <div className="mt-4 space-y-3">
-              <button
-                type="button"
-                onClick={() => setSelectedReportId(null)}
-                className="inline-flex min-h-10 items-center rounded-full border border-[#cfd8d3] bg-white px-4 text-sm font-black text-[#1a5e20] shadow-[0_2px_0_#cfd8d3]"
-              >
-                Clear details
-              </button>
-              <DetailField label="Submitted By">
-                <div className="flex flex-col gap-1">
-                  <span className="font-black text-[#123629]">{toDisplayText(selectedReport.submitter_name, 'Unknown submitter')}</span>
-                  <span>{toDisplayText(selectedReport.phone, 'No phone number')}</span>
-                </div>
-              </DetailField>
-              <DetailField label="Municipality">{toDisplayText(selectedReport.municipality, 'Unknown municipality')}</DetailField>
-              <DetailField label="Violation Type">{toDisplayText(selectedReport.violation_type, 'Untitled report')}</DetailField>
-              <DetailField label="Evidence Photo"><EvidencePreview report={selectedReport} /></DetailField>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <DetailField label="Latitude">{selectedReport.latitude ?? 'Not available'}</DetailField>
-                <DetailField label="Longitude">{selectedReport.longitude ?? 'Not available'}</DetailField>
-              </div>
-              <DetailField label="Location Source">{toDisplayText(selectedReport.manual_location, 'Coordinate-only report')}</DetailField>
-              <DetailField label="Description">{toDisplayText(selectedReport.description, 'Not available')}</DetailField>
-              <DetailField label="Timestamp">{formatTimestamp(selectedReport.created_at)}</DetailField>
-              <DetailField label="DENR Action Status">{String(selectedReport.status || 'submitted').replaceAll('_', ' ')}</DetailField>
-              <DetailField label="DENR Action Description">{toDisplayText(selectedReport.resolution_notes, 'No DENR action recorded yet.')}</DetailField>
-              <DetailField label="Acted Date and Time">{selectedReport.resolution_date ? formatTimestamp(selectedReport.resolution_date) : 'Not acted yet'}</DetailField>
-            </div>
-          ) : (
-            <div className="mt-4 space-y-3">
-              {highestAreaReports.length === 0 ? (
-                <div className="rounded-[1.05rem] border border-dashed border-[#ccd7d1] bg-[#f8fbf9] px-4 py-8 text-sm text-slate-500">
-                  No reports have been submitted yet.
-                </div>
-              ) : (
-                <>
-                  <div className="rounded-[1.05rem] border border-[#dbe4df] bg-[#f8fbf9] px-4 py-4">
-                    <p className="text-sm font-semibold text-slate-700">
-                      This area currently has the highest number of reported cases.
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Click View Details on a case below to show the full information here.
-                    </p>
-                  </div>
-
-                  <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
-                    {highestAreaReports.map((report) => (
-                      <article key={report.id} className="rounded-[1.05rem] border border-[#dbe4df] bg-white p-4 shadow-sm">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0">
-                            <p className="break-words text-base font-black text-[#123629]">{toDisplayText(report.reference_number, 'No reference number')}</p>
-                            <p className="mt-1 text-sm font-semibold text-slate-700">{toDisplayText(report.violation_type, 'Untitled report')}</p>
-                            <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-[#0f5f46]">{formatTimestamp(report.created_at)}</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedReportId(report.id)}
-                            className="min-h-10 rounded-full border border-[#003915] bg-[#00441b] px-4 text-sm font-black text-white"
-                          >
-                            View Details
-                          </button>
-                        </div>
-                        <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                          <div className="rounded-xl border border-[#e5ece8] bg-[#f8fbf9] px-3 py-2">
-                            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Submitter</p>
-                            <p className="mt-1 font-semibold text-slate-700">{toDisplayText(report.submitter_name, 'Unknown submitter')}</p>
-                          </div>
-                          <div className="rounded-xl border border-[#e5ece8] bg-[#f8fbf9] px-3 py-2">
-                            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Status</p>
-                            <p className="mt-1 font-semibold capitalize text-slate-700">{String(report.status || 'submitted').replaceAll('_', ' ')}</p>
-                          </div>
-                        </div>
-                        <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{toDisplayText(report.description, 'Not available')}</p>
-                      </article>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      </section>
-
       <section className="rounded-[1.25rem] border border-[#d6dfd9] bg-white shadow-sm sm:rounded-[1.7rem]">
         <div className="border-b border-[#e5ece8] px-4 py-4 sm:px-6 sm:py-5">
-          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46]">Reports Table</p>
-          <h3 className="mt-2 text-xl font-black text-[#123629] sm:text-2xl">Municipality Report Entries</h3>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0f5f46]">Reports Table</p>
+              <h3 className="mt-2 text-xl font-black text-[#123629] sm:text-2xl">Municipality Report Entries</h3>
+            </div>
+            <button
+              type="button"
+              onClick={downloadExcel}
+              className="inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#003915] bg-[#00441b] px-5 text-sm font-black text-white shadow-[0_3px_0_#003915] transition hover:-translate-y-0.5 hover:bg-[#0a5a28] hover:shadow-[0_5px_0_#003915] sm:w-auto"
+            >
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-white text-[#00441b]">
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z" />
+                  <path d="M14 2v5h5" />
+                  <path d="M12 11v6" />
+                  <path d="m9 14 3 3 3-3" />
+                </svg>
+              </span>
+              Export Reports
+            </button>
+          </div>
 
-          <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_13rem_16rem_12rem_auto]">
+          <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_13rem_16rem_12rem_12rem_auto]">
             <label className="grid gap-2">
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Search reference code</span>
               <input
@@ -698,80 +353,40 @@ export default function AdminReports() {
               </select>
             </label>
             <label className="grid gap-2">
-              <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Date</span>
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Previous</span>
               <input
                 type="date"
-                value={dateFilter}
-                onChange={(event) => setDateFilter(event.target.value)}
+                max={presentDateFilter || getLocalDateKey(new Date())}
+                value={previousDateFilter}
+                onChange={(event) => setPreviousDateFilter(event.target.value)}
                 className="min-h-12 rounded-xl border border-[#cfd8d3] bg-white px-4 text-sm font-semibold text-slate-800 outline-none focus:border-[#0f5f46] focus:ring-2 focus:ring-[#0f5f46]/15"
               />
             </label>
-            <button
-              type="button"
-              onClick={() => {
-                setReferenceSearch('')
-                setMunicipalityFilter('all')
-                setCaseFilter('all')
-                setDateFilter('')
-              }}
-              className="min-h-12 self-end rounded-xl border border-[#cfd8d3] bg-white px-5 text-sm font-black text-[#1a5e20] shadow-[0_2px_0_#cfd8d3]"
-            >
-              Clear
-            </button>
-          </div>
-
-          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#e1e9e5] bg-gradient-to-r from-[#f8fbf9] to-white p-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#0f5f46]">Export to Excel</p>
-              <p className="mt-1 text-sm text-slate-600">Exports use the current reference, municipality, and case filters.</p>
-            </div>
-            <div className="relative">
+            <label className="grid gap-2">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Present</span>
+              <input
+                type="date"
+                min={previousDateFilter || undefined}
+                max={getLocalDateKey(new Date())}
+                value={presentDateFilter}
+                onChange={(event) => setPresentDateFilter(event.target.value)}
+                className="min-h-12 rounded-xl border border-[#cfd8d3] bg-white px-4 text-sm font-semibold text-slate-800 outline-none focus:border-[#0f5f46] focus:ring-2 focus:ring-[#0f5f46]/15"
+              />
+            </label>
+            <div className="grid gap-2 self-end">
               <button
                 type="button"
-                onClick={() => setExportMenuOpen((open) => !open)}
-                aria-expanded={exportMenuOpen}
-                className="inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-full border border-[#003915] bg-[#00441b] px-5 text-sm font-black text-white shadow-[0_3px_0_#003915] transition hover:-translate-y-0.5 hover:bg-[#0a5a28] hover:shadow-[0_5px_0_#003915] sm:w-auto"
+                onClick={() => {
+                  setReferenceSearch('')
+                  setMunicipalityFilter('all')
+                  setCaseFilter('all')
+                  setPreviousDateFilter('')
+                  setPresentDateFilter(getLocalDateKey(new Date()))
+                }}
+                className="min-h-12 rounded-xl border border-[#cfd8d3] bg-white px-5 text-sm font-black text-[#1a5e20] shadow-[0_2px_0_#cfd8d3]"
               >
-                <span className="grid h-8 w-8 place-items-center rounded-full bg-white text-[#00441b]">
-                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z" />
-                    <path d="M14 2v5h5" />
-                    <path d="M12 11v6" />
-                    <path d="m9 14 3 3 3-3" />
-                  </svg>
-                </span>
-                Export Reports
-                <svg viewBox="0 0 24 24" aria-hidden="true" className={`h-4 w-4 transition ${exportMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
+                Clear
               </button>
-
-              {exportMenuOpen ? (
-                <div className="absolute right-0 z-20 mt-2 w-full min-w-64 overflow-hidden rounded-2xl border border-[#cfd8d3] bg-white p-2 shadow-xl sm:w-72">
-                  <button
-                    type="button"
-                    onClick={() => downloadExcel('week')}
-                    className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl px-4 text-left text-sm font-black text-[#123629] transition hover:bg-[#f0f6f2]"
-                  >
-                    <span>
-                      <span className="block">This Week</span>
-                      <span className="block text-xs font-semibold text-slate-500">Monday to today</span>
-                    </span>
-                    <span className="rounded-full bg-[#eaf4ee] px-2 py-1 text-xs text-[#0f5f46]">XLS</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => downloadExcel('month')}
-                    className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl px-4 text-left text-sm font-black text-[#123629] transition hover:bg-[#f0f6f2]"
-                  >
-                    <span>
-                      <span className="block">This Month</span>
-                      <span className="block text-xs font-semibold text-slate-500">Month start to today</span>
-                    </span>
-                    <span className="rounded-full bg-[#eaf4ee] px-2 py-1 text-xs text-[#0f5f46]">XLS</span>
-                  </button>
-                </div>
-              ) : null}
             </div>
           </div>
         </div>
@@ -821,11 +436,11 @@ export default function AdminReports() {
             <tbody className="divide-y divide-[#eef2ef] bg-white">
               {filteredReports.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-10 text-center text-sm text-slate-500">No reports match the current filters.</td>
+                  <td colSpan="6" className="px-6 py-6 text-center text-sm text-slate-500">No reports match the current filters.</td>
                 </tr>
               ) : (
                 filteredReports.map((report) => (
-                  <tr key={report.id} className={selectedReportId === report.id ? 'bg-[#f3f7f5]' : 'hover:bg-[#fafcfb]'}>
+                  <tr key={report.id} className="hover:bg-[#fafcfb]">
                     <td className="px-6 py-4 text-sm font-semibold text-slate-900">{toDisplayText(report.reference_number, 'No reference number')}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{toDisplayText(report.violation_type, 'Untitled report')}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{toDisplayText(report.municipality, 'Unknown municipality')}</td>
