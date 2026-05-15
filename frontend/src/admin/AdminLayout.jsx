@@ -53,8 +53,8 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#edf1ef] text-[#17261f] lg:grid lg:grid-cols-[19rem_1fr] lg:items-stretch">
-      <aside className="sticky top-0 z-40 border-b border-[#0d2d23]/15 bg-[#123629] text-white shadow-lg lg:static lg:flex lg:min-h-screen lg:flex-col lg:self-stretch lg:overflow-visible lg:border-b-0 lg:border-r lg:border-white/10">
+    <div className="min-h-screen bg-[#edf1ef] text-[#17261f] lg:pl-[19rem]">
+      <aside className="sticky top-0 z-40 border-b border-[#0d2d23]/15 bg-[#123629] text-white shadow-lg lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-[19rem] lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:border-white/10">
         <div className="flex min-h-[76px] items-center justify-between gap-3 px-4 py-3 lg:min-h-0 lg:flex-col lg:items-stretch lg:px-5 lg:py-6">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-white/25">
@@ -95,11 +95,11 @@ export default function AdminLayout() {
           ))}
         </nav>
 
-        <div className="mt-auto hidden px-5 pb-6 pt-4 lg:block">
+        <div className="mt-auto hidden px-5 pb-6 pt-5 lg:block">
           <button
             type="button"
             onClick={handleSignOut}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-white/15 px-4 text-sm font-semibold text-white transition hover:bg-white/10"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-bold text-emerald-50 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/45"
           >
             <Icon name="logout" />
             Sign Out
