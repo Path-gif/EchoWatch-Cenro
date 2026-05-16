@@ -17,11 +17,18 @@ const hasDiscreteConfig = Boolean(
   process.env.DB_PORT &&
   process.env.DB_NAME
 );
-const connectionString = hasDatabaseUrl
+const rawConnectionString = hasDatabaseUrl
   ? databaseUrl
   : hasDiscreteConfig
     ? `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`
     : null;
+const connectionString =
+  rawConnectionString &&
+  /[?&]sslmode=require/i.test(rawConnectionString) &&
+  !/[?&]uselibpqcompat=/i.test(rawConnectionString)
+    ? `${rawConnectionString}${rawConnectionString.includes('?') ? '&' : '?'}uselibpqcompat=true`
+    : rawConnectionString;
+const usesLocalDatabase = /@(localhost|127\.0\.0\.1)(:|\/)/i.test(connectionString || '');
 
 if (!connectionString) {
   console.error('Database configuration missing. Set DATABASE_URL or POSTGRES_URL in the deployment environment.');
@@ -29,6 +36,7 @@ if (!connectionString) {
 
 const pool = new Pool({
   connectionString,
+  ssl: connectionString && !usesLocalDatabase ? { rejectUnauthorized: false } : undefined,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
