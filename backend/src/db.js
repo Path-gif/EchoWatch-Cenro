@@ -4,9 +4,9 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const databaseUrl =
-  process.env.neondb_owner_POSTGRES_URL_NON_POOLING ||
   process.env.neondb_owner_POSTGRES_URL ||
   process.env.neondb_owner_POSTGRES_PRISMA_URL ||
+  process.env.neondb_owner_POSTGRES_URL_NON_POOLING ||
   process.env.POSTGRES_URL_NON_POOLING ||
   process.env.POSTGRES_URL ||
   process.env.POSTGRES_PRISMA_URL ||
