@@ -173,6 +173,15 @@ async function createSchema(db) {
   `);
 
   await db.query(
+    `UPDATE users
+     SET email = $1,
+         password_hash = $2,
+         updated_at = NOW()
+     WHERE LOWER(email) = LOWER($1)`,
+    ['Citizen@gmail.com', DEFAULT_CITIZEN_HASH]
+  );
+
+  await db.query(
     `INSERT INTO users (phone, email, password_hash, name, full_name, role, municipality, created_at, updated_at)
      VALUES ($1, $2, $3, $4, $4, 'citizen', $5, NOW(), NOW())
      ON CONFLICT (email) DO UPDATE
@@ -182,7 +191,17 @@ async function createSchema(db) {
          role = EXCLUDED.role,
          municipality = EXCLUDED.municipality,
          updated_at = NOW()`,
-    ['09170000001', 'citizen@gmail.com', DEFAULT_CITIZEN_HASH, 'Citizen User', 'Olongapo']
+    ['09170000001', 'Citizen@gmail.com', DEFAULT_CITIZEN_HASH, 'Citizen User', 'Olongapo']
+  );
+
+  await db.query(
+    `UPDATE admin_users
+     SET email = $1,
+         password_hash = $2,
+         is_active = TRUE,
+         updated_at = NOW()
+     WHERE LOWER(email) = LOWER($1)`,
+    ['Admin@gmail.com', DEFAULT_ADMIN_HASH]
   );
 
   await db.query(
@@ -194,7 +213,7 @@ async function createSchema(db) {
      SET password_hash = EXCLUDED.password_hash,
          is_active = TRUE,
          updated_at = NOW()`,
-    ['admin@gmail.com', DEFAULT_ADMIN_HASH, 'DENR Admin', 'admin@admin.com']
+    ['Admin@gmail.com', DEFAULT_ADMIN_HASH, 'DENR Admin', 'admin@admin.com']
   );
 }
 
