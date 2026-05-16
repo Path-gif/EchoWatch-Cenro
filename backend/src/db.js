@@ -3,14 +3,17 @@ const path = require('path');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const databaseUrl =
-  process.env.neondb_owner_POSTGRES_URL ||
-  process.env.neondb_owner_POSTGRES_PRISMA_URL ||
-  process.env.neondb_owner_POSTGRES_URL_NON_POOLING ||
-  process.env.POSTGRES_URL_NON_POOLING ||
-  process.env.POSTGRES_URL ||
-  process.env.POSTGRES_PRISMA_URL ||
-  process.env.DATABASE_URL;
+const databaseSources = [
+  ['neondb_owner_POSTGRES_URL', process.env.neondb_owner_POSTGRES_URL],
+  ['neondb_owner_POSTGRES_PRISMA_URL', process.env.neondb_owner_POSTGRES_PRISMA_URL],
+  ['neondb_owner_POSTGRES_URL_NON_POOLING', process.env.neondb_owner_POSTGRES_URL_NON_POOLING],
+  ['POSTGRES_URL_NON_POOLING', process.env.POSTGRES_URL_NON_POOLING],
+  ['POSTGRES_URL', process.env.POSTGRES_URL],
+  ['POSTGRES_PRISMA_URL', process.env.POSTGRES_PRISMA_URL],
+  ['DATABASE_URL', process.env.DATABASE_URL],
+];
+const selectedDatabaseSource = databaseSources.find(([, value]) => Boolean(value));
+const databaseUrl = selectedDatabaseSource?.[1];
 
 const hasDatabaseUrl = Boolean(databaseUrl);
 const hasDiscreteConfig = Boolean(
@@ -63,6 +66,7 @@ if (connectionString) {
 }
 
 module.exports = {
+  selectedDatabaseSource: selectedDatabaseSource?.[0] || null,
   query: (text, params) => {
     if (!connectionString) {
       const error = new Error('Database is not configured. Set DATABASE_URL or connect Vercel Postgres/Neon so POSTGRES_URL is available.');

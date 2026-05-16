@@ -77,6 +77,7 @@ app.get('/health', async (req, res) => {
       ok: false,
       service: 'denr-citizen-backend',
       database: 'error',
+      databaseSource: db.selectedDatabaseSource,
       error: error?.message || 'Database health check failed',
       code: error?.code || 'SERVER_ERROR',
     });
