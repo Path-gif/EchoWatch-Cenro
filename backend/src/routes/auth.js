@@ -166,6 +166,11 @@ router.post('/register', async (req, res) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
+    if (String(error.message || '').toLowerCase().includes('error sending confirmation email')) {
+      return res.status(502).json({
+        error: 'Supabase could not send the confirmation email. Check Authentication email/SMTP settings in Supabase.',
+      });
+    }
     if (error.status && error.status < 500) {
       return res.status(error.status).json({ error: error.message || 'Failed to register user' });
     }
