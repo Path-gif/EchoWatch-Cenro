@@ -29,9 +29,8 @@ export default function Register() {
   const [privacyOpen, setPrivacyOpen] = useState(false)
   const [message, setMessage] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [verificationCode, setVerificationCode] = useState('')
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState('')
-  const [resendingCode, setResendingCode] = useState(false)
+  const [resendingEmail, setResendingEmail] = useState(false)
   const navigate = useNavigate()
 
   async function handleRegister(e) {
@@ -52,8 +51,7 @@ export default function Register() {
       const res = await api.post('/auth/register', { fullName, phone, email, password, municipality })
       if (res.data?.requiresEmailVerification) {
         setPendingVerificationEmail(res.data.email || email)
-        setVerificationCode('')
-        setMessage({ type: 'success', text: 'Account created. Check your Gmail inbox and enter the verification code.' })
+        setMessage({ type: 'success', text: 'Account created. Check your Gmail inbox and click the confirmation link before signing in.' })
         return
       }
 
@@ -72,49 +70,20 @@ export default function Register() {
     }
   }
 
-  async function handleVerifyCode(e) {
-    e.preventDefault()
-
-    if (!pendingVerificationEmail || !verificationCode.trim()) {
-      setMessage({ type: 'error', text: 'Enter the verification code sent to your Gmail.' })
-      return
-    }
-
-    setLoading(true)
-    try {
-      const res = await api.post('/auth/verify-signup-code', {
-        email: pendingVerificationEmail,
-        code: verificationCode.trim(),
-      })
-      localStorage.setItem('token', res.data.token)
-      localStorage.setItem('user', JSON.stringify(normalizeUser(res.data.user)))
-      setMessage({ type: 'success', text: 'Email verified. Redirecting...' })
-      window.dispatchEvent(new Event('user-updated'))
-      navigate('/home', { replace: true })
-    } catch (err) {
-      const errorText =
-        err?.response?.data?.error ||
-        (err?.code === 'ERR_NETWORK' ? `Cannot reach backend server on ${api.defaults.baseURL}` : 'Verification failed')
-      setMessage({ type: 'error', text: toDisplayText(errorText, 'Verification failed') })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleResendCode() {
+  async function handleResendEmail() {
     if (!pendingVerificationEmail) return
 
-    setResendingCode(true)
+    setResendingEmail(true)
     try {
       await api.post('/auth/resend-signup-code', { email: pendingVerificationEmail })
-      setMessage({ type: 'success', text: 'A new verification code was sent to your Gmail inbox.' })
+      setMessage({ type: 'success', text: 'A new confirmation email was sent to your Gmail inbox.' })
     } catch (err) {
       const errorText =
         err?.response?.data?.error ||
-        (err?.code === 'ERR_NETWORK' ? `Cannot reach backend server on ${api.defaults.baseURL}` : 'Failed to resend code')
-      setMessage({ type: 'error', text: toDisplayText(errorText, 'Failed to resend code') })
+        (err?.code === 'ERR_NETWORK' ? `Cannot reach backend server on ${api.defaults.baseURL}` : 'Failed to resend confirmation email')
+      setMessage({ type: 'error', text: toDisplayText(errorText, 'Failed to resend confirmation email') })
     } finally {
-      setResendingCode(false)
+      setResendingEmail(false)
     }
   }
 
@@ -147,47 +116,34 @@ export default function Register() {
           )}
 
           {pendingVerificationEmail ? (
-            <form onSubmit={handleVerifyCode} className="mt-5 space-y-4">
+            <div className="mt-5 space-y-4">
               <div className="rounded-2xl rounded-tr-none border border-[#d7e0da] bg-[#f8f9fa] p-4">
                 <p className="text-sm font-black text-[#00441b]">Verify Gmail</p>
                 <p className="mt-1 text-sm leading-6 text-[#495057]">
-                  Enter the code sent to <span className="break-all font-bold text-[#212529]">{pendingVerificationEmail}</span>.
+                  Open the confirmation email sent to <span className="break-all font-bold text-[#212529]">{pendingVerificationEmail}</span>, then click the link inside it.
+                </p>
+                <p className="mt-3 text-sm leading-6 text-[#495057]">
+                  After confirming your Gmail, return here and sign in with your email and password.
                 </p>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-bold text-[#212529]">Verification Code</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  required
-                  maxLength={6}
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="123456"
-                  autoComplete="one-time-code"
-                  className={`${inputClass} text-center text-xl font-black tracking-[0.18em] sm:text-2xl sm:tracking-[0.35em]`}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-[#003915] bg-[linear-gradient(180deg,#1a5e20_0%,#00441b_100%)] px-4 text-sm font-black text-white shadow-[0_4px_0_#003915,0_10px_22px_rgba(0,68,27,0.2)] transition active:translate-y-[2px] active:shadow-[0_2px_0_#003915,0_6px_14px_rgba(0,68,27,0.18)] disabled:cursor-not-allowed disabled:opacity-60 sm:gap-3 sm:px-5 sm:text-base"
-              >
-                <UserIcon />
-                {loading ? 'Verifying...' : 'Verify and Continue'}
-              </button>
-
               <button
                 type="button"
-                disabled={resendingCode}
-                onClick={handleResendCode}
+                disabled={resendingEmail}
+                onClick={handleResendEmail}
                 className="min-h-12 w-full rounded-full border border-[#cfd8d3] bg-white px-5 text-sm font-black text-[#1a5e20] shadow-[0_3px_0_#cfd8d3] transition active:translate-y-[2px] active:shadow-[0_1px_0_#cfd8d3] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {resendingCode ? 'Sending...' : 'Resend Code'}
+                {resendingEmail ? 'Sending...' : 'Resend Confirmation Email'}
               </button>
-            </form>
+
+              <Link
+                to="/login"
+                className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-[#003915] bg-[linear-gradient(180deg,#1a5e20_0%,#00441b_100%)] px-4 text-sm font-black text-white shadow-[0_4px_0_#003915,0_10px_22px_rgba(0,68,27,0.2)] transition active:translate-y-[2px] active:shadow-[0_2px_0_#003915,0_6px_14px_rgba(0,68,27,0.18)] sm:gap-3 sm:px-5 sm:text-base"
+              >
+                <UserIcon />
+                Go to Sign In
+              </Link>
+            </div>
           ) : (
           <form onSubmit={handleRegister} className="mt-5 space-y-4">
             <div>

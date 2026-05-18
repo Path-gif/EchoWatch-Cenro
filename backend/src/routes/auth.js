@@ -236,11 +236,11 @@ router.post('/resend-signup-code', async (req, res) => {
       email: normalizedEmail,
     });
 
-    return res.json({ ok: true, message: 'Verification code sent.' });
+    return res.json({ ok: true, message: 'Confirmation email sent.' });
   } catch (error) {
-    console.error('Signup code resend error:', error);
+    console.error('Signup confirmation resend error:', error);
     const status = error.status && error.status < 500 ? error.status : 400;
-    return res.status(status).json({ error: error.message || 'Failed to resend verification code' });
+    return res.status(status).json({ error: error.message || 'Failed to resend confirmation email' });
   }
 });
 
