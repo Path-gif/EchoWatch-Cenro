@@ -21,6 +21,12 @@ function getSupabaseAuthConfig() {
   return url && anonKey ? { url, anonKey } : null;
 }
 
+function getEmailRedirectUrl() {
+  const configuredUrl = String(process.env.SUPABASE_EMAIL_REDIRECT_TO || process.env.PUBLIC_SITE_URL || '').trim();
+  const fallbackUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://eco-watch-cenro.vercel.app';
+  return `${(configuredUrl || fallbackUrl).replace(/\/+$/, '')}/login`;
+}
+
 function requireSupabaseAuthConfig(res) {
   if (getSupabaseAuthConfig()) return true;
 
@@ -137,7 +143,8 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ error: 'Phone number already registered' });
     }
 
-    const supabaseResult = await callSupabaseAuth('signup', {
+    const emailRedirectTo = encodeURIComponent(getEmailRedirectUrl());
+    await callSupabaseAuth(`signup?redirect_to=${emailRedirectTo}`, {
       email: normalizedEmail,
       password,
       data: {
