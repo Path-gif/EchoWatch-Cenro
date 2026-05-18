@@ -15,12 +15,77 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
 }
 
+function getSupabaseAuthConfig() {
+  const url = String(process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+  const anonKey = String(process.env.SUPABASE_ANON_KEY || '').trim();
+  return url && anonKey ? { url, anonKey } : null;
+}
+
+function requireSupabaseAuthConfig(res) {
+  if (getSupabaseAuthConfig()) return true;
+
+  res.status(500).json({
+    error: 'Supabase Auth is not configured. Add SUPABASE_URL and SUPABASE_ANON_KEY before citizen signup/login.',
+  });
+  return false;
+}
+
+async function callSupabaseAuth(path, body) {
+  const config = getSupabaseAuthConfig();
+  if (!config) {
+    const error = new Error('Supabase Auth is not configured');
+    error.status = 500;
+    throw error;
+  }
+
+  const response = await fetch(`${config.url}/auth/v1/${path}`, {
+    method: 'POST',
+    headers: {
+      apikey: config.anonKey,
+      Authorization: `Bearer ${config.anonKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message = data?.msg || data?.message || data?.error_description || data?.error || 'Supabase authentication failed';
+    const error = new Error(message);
+    error.status = response.status;
+    error.supabaseCode = data?.error_code || data?.code || data?.error;
+    throw error;
+  }
+
+  return { skipped: false, data };
+}
+
 async function ensureUserMunicipalityColumn() {
   await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS municipality TEXT');
   await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT');
   await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'citizen'");
   await db.query('UPDATE users SET name = full_name WHERE name IS NULL AND full_name IS NOT NULL');
   await db.query("UPDATE users SET role = 'citizen' WHERE role IS NULL");
+}
+
+function issueCitizenSession(user) {
+  const token = jwt.sign(
+    {
+      sub: user.id,
+      role: 'citizen',
+      phone: user.phone,
+      email: user.email,
+      name: user.full_name,
+      municipality: user.municipality,
+    },
+    process.env.JWT_SECRET || 'change_me',
+    { expiresIn: '7d' }
+  );
+
+  return {
+    user: { id: user.id, phone: user.phone, email: user.email, name: user.full_name, municipality: user.municipality },
+    token,
+  };
 }
 
 function requireUser(req, res, next) {
@@ -61,6 +126,7 @@ router.post('/register', async (req, res) => {
 
   try {
     await ensureUserMunicipalityColumn();
+    if (!requireSupabaseAuthConfig(res)) return;
 
     const existing = await db.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [normalizedEmail]);
     if (existing.rows.length > 0) {
@@ -71,6 +137,16 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ error: 'Phone number already registered' });
     }
 
+    const supabaseResult = await callSupabaseAuth('signup', {
+      email: normalizedEmail,
+      password,
+      data: {
+        fullName: normalizedName,
+        phone: normalizedPhone,
+        municipality,
+      },
+    });
+
     const passwordHash = await bcryptjs.hash(password, 10);
     const result = await db.query(
       `INSERT INTO users (phone, email, password_hash, name, full_name, role, municipality, created_at, updated_at)
@@ -80,21 +156,91 @@ router.post('/register', async (req, res) => {
     );
 
     const user = result.rows[0];
-    const token = jwt.sign(
-      { sub: user.id, email: user.email, phone: user.phone, name: user.full_name, municipality: user.municipality },
-      process.env.JWT_SECRET || 'change_me',
-      { expiresIn: '7d' }
-    );
 
     return res.status(201).json({
       ok: true,
-      message: 'Registration successful',
+      requiresEmailVerification: true,
+      message: 'Registration successful. Please check your Gmail inbox and confirm your email before signing in.',
+      email: user.email,
       user: { id: user.id, phone: user.phone, email: user.email, name: user.full_name, municipality: user.municipality },
-      token,
     });
   } catch (error) {
     console.error('Registration error:', error);
+    if (error.status && error.status < 500) {
+      return res.status(error.status).json({ error: error.message || 'Failed to register user' });
+    }
     return sendServerError(res, 'Failed to register user', error);
+  }
+});
+
+router.post('/verify-signup-code', async (req, res) => {
+  const normalizedEmail = String(req.body?.email || '').trim().toLowerCase();
+  const code = String(req.body?.code || '').trim();
+
+  if (!isValidEmail(normalizedEmail) || !code) {
+    return res.status(400).json({ error: 'Email and verification code are required' });
+  }
+
+  try {
+    await ensureUserMunicipalityColumn();
+    if (!requireSupabaseAuthConfig(res)) return;
+
+    try {
+      await callSupabaseAuth('verify', {
+        email: normalizedEmail,
+        token: code,
+        type: 'signup',
+      });
+    } catch (error) {
+      await callSupabaseAuth('verify', {
+        email: normalizedEmail,
+        token: code,
+        type: 'email',
+      });
+    }
+
+    const result = await db.query(
+      'SELECT id, phone, email, full_name, municipality FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+      [normalizedEmail]
+    );
+    const user = result.rows[0];
+    if (!user) return res.status(404).json({ error: 'Account not found' });
+
+    await db.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
+    const session = issueCitizenSession(user);
+
+    return res.json({
+      ok: true,
+      role: 'citizen',
+      message: 'Email verified successfully',
+      ...session,
+    });
+  } catch (error) {
+    console.error('Signup code verification error:', error);
+    const status = error.status && error.status < 500 ? error.status : 400;
+    return res.status(status).json({ error: error.message || 'Invalid or expired verification code' });
+  }
+});
+
+router.post('/resend-signup-code', async (req, res) => {
+  const normalizedEmail = String(req.body?.email || '').trim().toLowerCase();
+
+  if (!isValidEmail(normalizedEmail)) {
+    return res.status(400).json({ error: 'Valid email address is required' });
+  }
+
+  try {
+    if (!requireSupabaseAuthConfig(res)) return;
+    await callSupabaseAuth('resend', {
+      type: 'signup',
+      email: normalizedEmail,
+    });
+
+    return res.json({ ok: true, message: 'Verification code sent.' });
+  } catch (error) {
+    console.error('Signup code resend error:', error);
+    const status = error.status && error.status < 500 ? error.status : 400;
+    return res.status(status).json({ error: error.message || 'Failed to resend verification code' });
   }
 });
 
@@ -176,6 +322,27 @@ router.post('/login', async (req, res) => {
       }
     }
 
+    let supabaseUser = null;
+    if (loginByEmail) {
+      if (!requireSupabaseAuthConfig(res)) return;
+      try {
+        const supabaseResult = await callSupabaseAuth('token?grant_type=password', {
+          email: normalizedIdentifier,
+          password,
+        });
+        supabaseUser = supabaseResult.data?.user || null;
+        if (!supabaseUser?.email_confirmed_at && !supabaseUser?.confirmed_at) {
+          return res.status(403).json({ error: 'email_not_confirmed' });
+        }
+      } catch (error) {
+        const message = String(error.message || '').toLowerCase();
+        if (message.includes('email not confirmed') || message.includes('email_not_confirmed')) {
+          return res.status(403).json({ error: 'email_not_confirmed' });
+        }
+        return res.status(401).json({ error: 'Invalid email/phone or password' });
+      }
+    }
+
     const query = loginByEmail
       ? 'SELECT id, phone, email, full_name, municipality, password_hash FROM users WHERE LOWER(email) = LOWER($1)'
       : 'SELECT id, phone, email, full_name, municipality, password_hash FROM users WHERE phone = $1';
@@ -183,29 +350,38 @@ router.post('/login', async (req, res) => {
     const result = await db.query(query, [loginByEmail ? normalizedIdentifier : rawIdentifier]);
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid email/phone or password' });
+      if (!supabaseUser) {
+        return res.status(401).json({ error: 'Invalid email/phone or password' });
+      }
+
+      const metadata = supabaseUser.user_metadata || {};
+      const placeholderPhone = String(metadata.phone || '').trim() || `supabase-${supabaseUser.id}`;
+      const placeholderName = String(metadata.fullName || metadata.name || normalizedIdentifier).trim();
+      const passwordHash = await bcryptjs.hash(password, 10);
+      const created = await db.query(
+        `INSERT INTO users (phone, email, password_hash, name, full_name, role, municipality, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $4, 'citizen', $5, NOW(), NOW())
+         RETURNING id, phone, email, full_name, municipality, password_hash`,
+        [placeholderPhone, normalizedIdentifier, passwordHash, placeholderName, metadata.municipality || null]
+      );
+      result.rows = created.rows;
     }
 
     const user = result.rows[0];
-    const isValidPassword = await bcryptjs.compare(password, user.password_hash);
+    const isValidPassword = loginByEmail ? Boolean(supabaseUser) : await bcryptjs.compare(password, user.password_hash);
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid email/phone or password' });
     }
 
     await db.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
 
-    const token = jwt.sign(
-      { sub: user.id, role: 'citizen', phone: user.phone, email: user.email, name: user.full_name, municipality: user.municipality },
-      process.env.JWT_SECRET || 'change_me',
-      { expiresIn: '7d' }
-    );
+    const session = issueCitizenSession(user);
 
     return res.json({
       ok: true,
       role: 'citizen',
       message: 'Login successful',
-      user: { id: user.id, phone: user.phone, email: user.email, name: user.full_name, municipality: user.municipality },
-      token,
+      ...session,
     });
   } catch (error) {
     console.error('Login error:', error);

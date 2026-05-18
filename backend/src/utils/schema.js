@@ -141,17 +141,6 @@ async function createSchema(db) {
     )
   `);
 
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS email_verifications (
-      id SERIAL PRIMARY KEY,
-      email VARCHAR(100) NOT NULL,
-      code VARCHAR(6) NOT NULL,
-      expires_at TIMESTAMPTZ NOT NULL,
-      used BOOLEAN DEFAULT FALSE,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-
   await db.query('CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone)');
   await db.query('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
   await db.query('CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users (LOWER(email)) WHERE email IS NOT NULL');

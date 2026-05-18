@@ -18,7 +18,7 @@ const REPORTED_CASES = [
   'Illegal Cutting (Section 77)',
   'Illegal Occupation (Section 78)',
   'Chainsaw Act (RA 9175)',
-  'Mining Act (RA 9275)',
+  'Mining Act (RA 7942)',
   'Wildlife (RA 9147)',
 ]
 

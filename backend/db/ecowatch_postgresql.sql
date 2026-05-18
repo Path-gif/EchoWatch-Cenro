@@ -166,15 +166,6 @@ CREATE TABLE IF NOT EXISTS system_settings (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS email_verifications (
-  id SERIAL PRIMARY KEY,
-  email VARCHAR(100) NOT NULL,
-  code VARCHAR(6) NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL,
-  used BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
 CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users (LOWER(email)) WHERE email IS NOT NULL;
@@ -190,8 +181,6 @@ CREATE INDEX IF NOT EXISTS idx_reports_category ON reports(category_id);
 CREATE INDEX IF NOT EXISTS idx_report_media_report ON report_media(report_id);
 CREATE INDEX IF NOT EXISTS idx_report_activities_report ON report_activities(report_id);
 CREATE INDEX IF NOT EXISTS idx_report_activities_admin ON report_activities(admin_id);
-CREATE INDEX IF NOT EXISTS idx_email_verifications_email_code ON email_verifications(LOWER(email), code);
-
 INSERT INTO categories (name, description, icon_emoji, color_code) VALUES
   ('Illegal Cutting', 'Unauthorized logging and tree cutting activities', 'Tree', '#10B981'),
   ('Illegal Occupation', 'Illegal settlement and land occupation', 'Home', '#F59E0B'),

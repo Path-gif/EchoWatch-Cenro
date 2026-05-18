@@ -31,7 +31,20 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [verificationCode, setVerificationCode] = useState('')
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState('')
+  const [resendingCode, setResendingCode] = useState(false)
   const navigate = useNavigate()
+
+  function finishCitizenLogin(data) {
+    localStorage.removeItem('admin_token')
+    localStorage.removeItem('admin_user')
+    localStorage.setItem('token', data.token)
+    localStorage.setItem('user', JSON.stringify(normalizeUser(data.user)))
+    setMessage({ type: 'success', text: 'Citizen signed in successfully.' })
+    window.dispatchEvent(new Event('user-updated'))
+    navigate('/home', { replace: true })
+  }
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -63,14 +76,15 @@ export default function Login() {
         return
       }
 
-      localStorage.removeItem('admin_token')
-      localStorage.removeItem('admin_user')
-      localStorage.setItem('token', res.data.token)
-      localStorage.setItem('user', JSON.stringify(normalizeUser(res.data.user)))
-      setMessage({ type: 'success', text: 'Citizen signed in successfully.' })
-      window.dispatchEvent(new Event('user-updated'))
-      navigate('/home', { replace: true })
+      finishCitizenLogin(res.data)
     } catch (err) {
+      if (err?.response?.data?.error === 'email_not_confirmed') {
+        setPendingVerificationEmail(submittedEmail)
+        setVerificationCode('')
+        setMessage({ type: 'error', text: 'Enter the Gmail verification code before signing in.' })
+        return
+      }
+
       const errorText =
         err?.response?.data?.error ||
         (err?.code === 'ERR_NETWORK' ? `Cannot reach backend server on ${api.defaults.baseURL}` : 'Login failed')
@@ -80,13 +94,55 @@ export default function Login() {
     }
   }
 
+  async function handleVerifyCode(e) {
+    e.preventDefault()
+
+    if (!pendingVerificationEmail || !verificationCode.trim()) {
+      setMessage({ type: 'error', text: 'Enter the verification code sent to your Gmail.' })
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await api.post('/auth/verify-signup-code', {
+        email: pendingVerificationEmail,
+        code: verificationCode.trim(),
+      })
+      finishCitizenLogin(res.data)
+    } catch (err) {
+      const errorText =
+        err?.response?.data?.error ||
+        (err?.code === 'ERR_NETWORK' ? `Cannot reach backend server on ${api.defaults.baseURL}` : 'Verification failed')
+      setMessage({ type: 'error', text: toDisplayText(errorText, 'Verification failed') })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleResendCode() {
+    if (!pendingVerificationEmail) return
+
+    setResendingCode(true)
+    try {
+      await api.post('/auth/resend-signup-code', { email: pendingVerificationEmail })
+      setMessage({ type: 'success', text: 'A new verification code was sent to your Gmail inbox.' })
+    } catch (err) {
+      const errorText =
+        err?.response?.data?.error ||
+        (err?.code === 'ERR_NETWORK' ? `Cannot reach backend server on ${api.defaults.baseURL}` : 'Failed to resend code')
+      setMessage({ type: 'error', text: toDisplayText(errorText, 'Failed to resend code') })
+    } finally {
+      setResendingCode(false)
+    }
+  }
+
   return (
     <div
       className="flex min-h-[calc(100vh-128px)] items-center justify-center overflow-x-hidden bg-[#fcfdfc] px-3 py-4 text-[#212529]"
       style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}
     >
       <div className="w-full max-w-md">
-        <div className="relative w-full rounded-2xl rounded-tr-none border border-[#d7e0da] bg-white p-5 shadow-[0_12px_28px_rgba(0,68,27,0.12)]">
+        <div className="relative w-full rounded-2xl rounded-tr-none border border-[#d7e0da] bg-white p-4 shadow-[0_12px_28px_rgba(0,68,27,0.12)] sm:p-5">
           <Link
             to="/"
             aria-label="Back to landing page"
@@ -99,7 +155,7 @@ export default function Login() {
               <img src="/logo.png" alt="DENR logo" className="h-[70px] w-[70px] object-contain" />
             </div>
             <p className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-[#1a5e20]">EcoWatch Access</p>
-            <h1 className="mt-1 text-3xl font-black leading-tight text-[#00441b]">Sign In</h1>
+            <h1 className="mt-1 text-2xl font-black leading-tight text-[#00441b] sm:text-3xl">Sign In</h1>
             <p className="mt-2 text-sm leading-6 text-[#495057]">Use your account credentials. The system will open the correct dashboard automatically.</p>
           </div>
 
@@ -115,6 +171,49 @@ export default function Login() {
             </div>
           )}
 
+          {pendingVerificationEmail ? (
+            <form onSubmit={handleVerifyCode} className="mt-5 space-y-4">
+              <div className="rounded-2xl rounded-tr-none border border-[#d7e0da] bg-[#f8f9fa] p-4">
+                <p className="text-sm font-black text-[#00441b]">Verify Gmail</p>
+                <p className="mt-1 text-sm leading-6 text-[#495057]">
+                  Enter the code sent to <span className="break-all font-bold text-[#212529]">{pendingVerificationEmail}</span>.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[#212529]">Verification Code</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  maxLength={6}
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="123456"
+                  autoComplete="one-time-code"
+                  className={`${inputClass} text-center text-xl font-black tracking-[0.18em] sm:text-2xl sm:tracking-[0.35em]`}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-[#003915] bg-[linear-gradient(180deg,#1a5e20_0%,#00441b_100%)] px-4 text-sm font-black text-white shadow-[0_4px_0_#003915,0_10px_22px_rgba(0,68,27,0.2)] transition active:translate-y-[2px] active:shadow-[0_2px_0_#003915,0_6px_14px_rgba(0,68,27,0.18)] disabled:cursor-not-allowed disabled:opacity-60 sm:gap-3 sm:px-5 sm:text-base"
+              >
+                <LoginIcon />
+                {loading ? 'Verifying...' : 'Verify and Sign In'}
+              </button>
+
+              <button
+                type="button"
+                disabled={resendingCode}
+                onClick={handleResendCode}
+                className="min-h-12 w-full rounded-full border border-[#cfd8d3] bg-white px-5 text-sm font-black text-[#1a5e20] shadow-[0_3px_0_#cfd8d3] transition active:translate-y-[2px] active:shadow-[0_1px_0_#cfd8d3] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {resendingCode ? 'Sending...' : 'Resend Code'}
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleLogin} className="mt-5 space-y-4">
             <div>
               <label className="mb-2 block text-sm font-bold text-[#212529]">Email or Phone</label>
@@ -142,12 +241,13 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="flex min-h-14 w-full items-center justify-center gap-3 rounded-full border border-[#003915] bg-[linear-gradient(180deg,#1a5e20_0%,#00441b_100%)] px-5 text-base font-black text-white shadow-[0_4px_0_#003915,0_10px_22px_rgba(0,68,27,0.2)] transition active:translate-y-[2px] active:shadow-[0_2px_0_#003915,0_6px_14px_rgba(0,68,27,0.18)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-[#003915] bg-[linear-gradient(180deg,#1a5e20_0%,#00441b_100%)] px-4 text-sm font-black text-white shadow-[0_4px_0_#003915,0_10px_22px_rgba(0,68,27,0.2)] transition active:translate-y-[2px] active:shadow-[0_2px_0_#003915,0_6px_14px_rgba(0,68,27,0.18)] disabled:cursor-not-allowed disabled:opacity-60 sm:gap-3 sm:px-5 sm:text-base"
             >
               <LoginIcon />
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+          )}
 
           <p className="mt-5 text-center text-sm leading-6 text-[#495057]">
             No account yet?{' '}

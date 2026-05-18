@@ -28,6 +28,54 @@ const COVERAGE_MUNICIPALITIES = [
   { name: 'Cabangan', latitude: 15.1673, longitude: 120.0334 },
 ]
 
+const REPORTED_CASES = [
+  'Illegal Cutting (Section 77)',
+  'Illegal Occupation (Section 78)',
+  'Chainsaw Act (RA 9175)',
+  'Mining Act (RA 7942)',
+  'Wildlife (RA 9147)',
+  'Others',
+]
+
+const LAW_DETAILS = {
+  'Illegal Cutting (Section 77)': {
+    label: 'Section 77',
+    title: 'Illegal Cutting',
+    description:
+      'Covers cutting, gathering, collecting, or removing timber or forest products from forest land, private land, or alienable and disposable public land without the required authority or permit.',
+  },
+  'Illegal Occupation (Section 78)': {
+    label: 'Section 78',
+    title: 'Illegal Occupation',
+    description:
+      'Covers unlawful entry, occupation, or use of forest land, including kaingin activity or settlement without legal authority from the government.',
+  },
+  'Chainsaw Act (RA 9175)': {
+    label: 'RA 9175',
+    title: 'Chainsaw Regulation',
+    description:
+      'Regulates the ownership, possession, sale, importation, and use of chainsaws to prevent illegal logging and unauthorized tree cutting.',
+  },
+  'Mining Act (RA 7942)': {
+    label: 'RA 7942',
+    title: 'Mining Law',
+    description:
+      'Governs mineral resource exploration, development, utilization, and conservation, including requirements for authorized mining operations.',
+  },
+  'Wildlife (RA 9147)': {
+    label: 'RA 9147',
+    title: 'Wildlife Protection',
+    description:
+      'Protects wildlife resources and habitats, including rules against illegal collection, possession, transport, trading, hunting, and harming of wildlife.',
+  },
+  Others: {
+    label: 'Other Concern',
+    title: 'Environmental Report',
+    description:
+      'Use this option for environmental concerns that do not fit the listed laws. Include clear details so DENR can classify and verify the report.',
+  },
+}
+
 const pinIcon = L.divIcon({
   className: '',
   html: `
@@ -220,6 +268,7 @@ export default function SubmitReport() {
   const hasIdentitySelection = formData.anonymous !== null
   const hasPhoto = mediaFiles.some((file) => file.type.startsWith('image/'))
   const isFormValid = hasTitle && hasDate && hasDescription && hasLocation && hasIdentitySelection && hasPhoto
+  const selectedLaw = LAW_DETAILS[formData.violationType] || LAW_DETAILS.Others
 
   const fieldHasError = (valid) => submitAttempted && !valid
 
@@ -333,11 +382,11 @@ export default function SubmitReport() {
       style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}
     >
       <div className="mx-auto w-full max-w-5xl space-y-3">
-        <section className="rounded-2xl rounded-tr-none border border-[#d7e0da] bg-[linear-gradient(135deg,#00441b_0%,#1a5e20_72%,#4c9a2a_100%)] p-5 text-white shadow-[0_12px_28px_rgba(0,68,27,0.18)]">
-          <p className="inline-flex rounded-full border border-white/30 bg-white/10 px-4 py-1 text-xs font-black uppercase tracking-[0.16em]">
+        <section className="rounded-2xl rounded-tr-none border border-[#d7e0da] bg-[linear-gradient(135deg,#00441b_0%,#1a5e20_72%,#4c9a2a_100%)] p-4 text-white shadow-[0_12px_28px_rgba(0,68,27,0.18)] sm:p-5">
+          <p className="inline-flex rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] sm:px-4 sm:text-xs sm:tracking-[0.16em]">
             Citizen Submission
           </p>
-          <h1 className="mt-3 text-3xl font-black leading-tight sm:text-4xl">Submit Environmental Report</h1>
+          <h1 className="mt-3 text-2xl font-black leading-tight sm:text-4xl">Submit Environmental Report</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/90">
             Add the report title, description, location, evidence, and identity choice.
           </p>
@@ -366,14 +415,25 @@ export default function SubmitReport() {
                     onChange={(e) => setFormData((current) => ({ ...current, violationType: e.target.value }))}
                     className={`${inputClass} ${fieldHasError(hasTitle) ? invalidInputClass : ''}`}
                   >
-                    <option>Illegal Cutting (Section 77)</option>
-                    <option>Illegal Occupation (Section 78)</option>
-                    <option>Chainsaw Act (RA 9175)</option>
-                    <option>Mining Act (RA 9275)</option>
-                    <option>Wildlife (RA 9147)</option>
-                    <option>Others</option>
+                    {REPORTED_CASES.map((reportedCase) => (
+                      <option key={reportedCase}>{reportedCase}</option>
+                    ))}
                   </select>
                   {fieldHasError(hasTitle) && <p className="mt-2 text-xs font-semibold text-[#b33a2e]">Title is required.</p>}
+                </div>
+
+                <div className="rounded-xl rounded-tr-none border border-[#cfd8d3] bg-[#f8f9fa] p-3 shadow-[inset_0_2px_6px_rgba(0,68,27,0.06)] sm:p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <p className="text-base font-black text-[#00441b]">{selectedLaw.title}</p>
+                        <span className="text-sm font-black uppercase text-[#00441b]">
+                          {selectedLaw.label.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-[#212529] sm:leading-7">{selectedLaw.description}</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -423,7 +483,7 @@ export default function SubmitReport() {
               </div>
 
               {locationMode === 'gps' && formData.latitude && formData.longitude && (
-                <p className="mt-3 rounded-xl rounded-tr-none border border-[#b9d7b3] bg-[#eef6ea] px-4 py-3 text-sm font-semibold text-[#1a5e20]">
+                <p className="mt-3 break-words rounded-xl rounded-tr-none border border-[#b9d7b3] bg-[#eef6ea] px-4 py-3 text-sm font-semibold text-[#1a5e20]">
                   GPS Location: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
                 </p>
               )}
@@ -456,7 +516,7 @@ export default function SubmitReport() {
                   />
 
                   {formData.latitude != null && formData.longitude != null ? (
-                    <p className="mt-3 rounded-xl rounded-tr-none border border-[#b9d7b3] bg-[#eef6ea] px-4 py-3 text-sm font-semibold text-[#1a5e20]">
+                    <p className="mt-3 break-words rounded-xl rounded-tr-none border border-[#b9d7b3] bg-[#eef6ea] px-4 py-3 text-sm font-semibold text-[#1a5e20]">
                       Selected pin: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
                     </p>
                   ) : null}
@@ -526,7 +586,7 @@ export default function SubmitReport() {
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1a5e20]">Reporter</p>
               <div className="mt-3 rounded-xl rounded-tr-none border border-[#d7e0da] bg-[#f8f9fa] p-4">
                 <p className="text-xs font-black uppercase tracking-[0.12em] text-[#6c757d]">Phone Number</p>
-                <p className="mt-1 text-lg font-black text-[#00441b]">{user?.phone || 'No phone number available'}</p>
+                <p className="mt-1 break-words text-base font-black text-[#00441b] sm:text-lg">{user?.phone || 'No phone number available'}</p>
               </div>
             </section>
 
@@ -537,42 +597,61 @@ export default function SubmitReport() {
                   Select Named Submission or Anonymous Name before submitting.
                 </p>
               )}
-              <div className="mt-3 grid gap-3">
+              <div
+                className={`mt-3 grid grid-cols-2 rounded-2xl border bg-[#f8f9fa] p-1 shadow-[inset_0_2px_6px_rgba(0,68,27,0.08)] sm:rounded-full ${
+                  fieldHasError(hasIdentitySelection) ? 'border-[#d56b5f]' : 'border-[#cfd8d3]'
+                }`}
+                role="group"
+                aria-label="Submission identity"
+              >
                 <button
                   type="button"
                   onClick={() => setFormData((current) => ({ ...current, anonymous: false }))}
-                  className={`min-h-24 rounded-xl rounded-tr-none border-2 p-4 text-left transition active:translate-y-[1px] ${
+                  className={`min-h-12 rounded-xl px-2 text-xs font-black transition sm:rounded-full sm:px-3 sm:text-sm ${
                     formData.anonymous === false
-                      ? 'border-[#00441b] bg-[#eef6ea] text-[#212529] shadow-[inset_0_3px_8px_rgba(0,68,27,0.18),0_0_0_2px_rgba(76,154,42,0.18)]'
-                      : fieldHasError(hasIdentitySelection)
-                        ? 'border-[#d56b5f] bg-[#fff8f7] text-[#495057] shadow-[0_3px_0_#e0b4aa]'
-                        : 'border-[#cfd8d3] bg-white text-[#495057] shadow-[0_3px_0_#cfd8d3]'
+                      ? 'bg-[#00441b] text-white shadow-[0_2px_0_#003915]'
+                      : 'text-[#495057] hover:bg-white'
                   }`}
+                  aria-pressed={formData.anonymous === false}
                 >
-                  <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl rounded-br-none bg-[#00441b] text-white">
-                    <Icon type="user" />
-                  </span>
-                  <span className="block font-black">Named Submission</span>
-                  <span className="mt-1 block text-sm leading-5">Your account remains linked for DENR review.</span>
+                  Named
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setFormData((current) => ({ ...current, anonymous: true }))}
-                  className={`min-h-24 rounded-xl rounded-tl-none border-2 p-4 text-left transition active:translate-y-[1px] ${
+                  className={`min-h-12 rounded-xl px-2 text-xs font-black transition sm:rounded-full sm:px-3 sm:text-sm ${
                     formData.anonymous === true
-                      ? 'border-[#1a5e20] bg-[#eef6ea] text-[#212529] shadow-[inset_0_3px_8px_rgba(0,68,27,0.18),0_0_0_2px_rgba(76,154,42,0.18)]'
-                      : fieldHasError(hasIdentitySelection)
-                        ? 'border-[#d56b5f] bg-[#fff8f7] text-[#495057] shadow-[0_3px_0_#e0b4aa]'
-                        : 'border-[#cfd8d3] bg-white text-[#495057] shadow-[0_3px_0_#cfd8d3]'
+                      ? 'bg-[#00441b] text-white shadow-[0_2px_0_#003915]'
+                      : 'text-[#495057] hover:bg-white'
                   }`}
+                  aria-pressed={formData.anonymous === true}
                 >
-                  <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl rounded-br-none bg-[#4c9a2a] text-white">
-                    <Icon type="hidden" />
-                  </span>
-                  <span className="block font-black">Anonymous Name</span>
-                  <span className="mt-1 block text-sm leading-5">Your name is hidden in report display.</span>
+                  Anonymous
                 </button>
+              </div>
+              <div className="mt-3 rounded-xl rounded-tr-none border border-[#d7e0da] bg-[#f8f9fa] px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl rounded-br-none bg-[#00441b] text-white">
+                    <Icon type={formData.anonymous ? 'hidden' : 'user'} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-black text-[#212529]">
+                      {formData.anonymous === true
+                        ? 'Anonymous Name'
+                        : formData.anonymous === false
+                          ? 'Named Submission'
+                          : 'Choose submission type'}
+                    </p>
+                    <p className="mt-1 text-sm leading-5 text-[#495057]">
+                      {formData.anonymous === true
+                        ? 'Your name is hidden in report display.'
+                        : formData.anonymous === false
+                          ? 'Your account remains linked for DENR review.'
+                          : 'Select how your name should appear on this report.'}
+                    </p>
+                  </div>
+                </div>
               </div>
             </section>
 

@@ -184,20 +184,6 @@ INSERT INTO system_settings (setting_key, setting_value, description) VALUES
 ON CONFLICT (setting_key) DO NOTHING;
 
 -- ============================================
--- TABLE: email_verifications (Email verification)
--- ============================================
-CREATE TABLE IF NOT EXISTS email_verifications (
-    id SERIAL PRIMARY KEY,
-    email VARCHAR(100) NOT NULL,
-    code VARCHAR(6) NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    used BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_email_verifications_email_code ON email_verifications(lower(email), code);
-
--- ============================================
 -- VERIFY ALL TABLES CREATED
 -- ============================================
 SELECT 'Database migration completed successfully!' AS status;
