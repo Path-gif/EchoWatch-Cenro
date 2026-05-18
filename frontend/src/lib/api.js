@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim()
-const isLocalApiUrl = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(configuredApiUrl || '')
+const isLocalApiUrl = /^https?:\/\/(localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?/i.test(configuredApiUrl || '')
 const baseURL = import.meta.env.PROD
   ? (configuredApiUrl && !isLocalApiUrl ? configuredApiUrl : '/api')
   : (configuredApiUrl || 'http://localhost:3000')
